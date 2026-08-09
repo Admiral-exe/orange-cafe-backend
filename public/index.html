@@ -100,7 +100,8 @@
       const [posPaymentMethod, setPosPaymentMethod] = useState('Cash (Paid)'); // 'Cash (Paid)' | 'UPI at Counter' | 'Pay Later'
       const [posCart, setPosCart] = useState([]); // [{ item, quantity, size: 'Regular'|'Medium' }]
 
-      // Past History State
+      // Staff Gateway Phone Setting
+      const [staffGatewayPhone, setStaffGatewayPhone] = useState('7623007043');
       const [pastHistory, setPastHistory] = useState([]);
       const [selectedPastDate, setSelectedPastDate] = useState(null);
       const [selectedDateOrders, setSelectedDateOrders] = useState([]);
@@ -686,25 +687,46 @@
                 </div>
               </div>
 
-              {/* Status Sync Badges */}
-              <div className="flex items-center gap-3">
+              {/* Status Sync Badges & Staff Phone Gateway */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl text-xs font-bold text-slate-700">
+                  <span>📱 Gateway:</span>
+                  <input
+                    type="text"
+                    value={staffGatewayPhone}
+                    onChange={(e) => setStaffGatewayPhone(e.target.value)}
+                    onBlur={async (e) => {
+                      try {
+                        await fetch('/api/settings', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ staffPhone: e.target.value })
+                        });
+                      } catch(err) {}
+                    }}
+                    className="w-24 px-1.5 py-0.5 rounded bg-white border border-slate-300 font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
+                    placeholder="7623007043"
+                    title="Staff SMS/WhatsApp Gateway Phone Number"
+                  />
+                </div>
+
                 <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
                   isConnected ? 'bg-green-50 text-green-700 border-green-300' : 'bg-amber-50 text-amber-700 border-amber-300'
                 }`}>
                   <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-ping' : 'bg-amber-500'}`}></span>
-                  {isConnected ? '🟢 Live WebSocket Sync' : '🟡 REST Polling'}
+                  {isConnected ? '🟢 Live Sync' : '🟡 Polling'}
                 </span>
 
                 <button
                   onClick={() => setIsMuted(!isMuted)}
                   className={`p-2 rounded-xl border text-xs font-bold transition-all ${isMuted ? 'bg-red-50 border-red-300 text-red-600' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'}`}
                 >
-                  {isMuted ? '🔇 Sound Muted' : '🔔 Chime On'}
+                  {isMuted ? '🔇 Muted' : '🔔 Chime'}
                 </button>
 
                 <button
                   onClick={() => setIsLoggedIn(false)}
-                  className="px-3.5 py-1.5 rounded-xl bg-red-500 text-white font-bold text-xs hover:bg-red-600 transition-all shadow-sm"
+                  className="px-3 py-1.5 rounded-xl bg-red-500 text-white font-bold text-xs hover:bg-red-600 transition-all shadow-sm"
                 >
                   Logout
                 </button>
