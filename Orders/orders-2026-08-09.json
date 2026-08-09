@@ -1,0 +1,66 @@
+[
+  {
+    "id": "ORD-TEST-OVERLAP",
+    "type": "dine_in",
+    "tableNumber": "3",
+    "customerName": "Overlap Test Customer",
+    "phone": "9876543210",
+    "address": "",
+    "mapUrl": "",
+    "subtotal": 697,
+    "bogoDiscount": 299,
+    "serviceCharge": 39.8,
+    "taxes": 39.8,
+    "grandTotal": 437.8,
+    "status": "pending",
+    "date": "2026-08-09",
+    "createdAt": "2026-08-09T06:40:51.279Z",
+    "items": [
+      {
+        "name": "Double Cheese Margherita Pizza (Medium Extra Cheese)",
+        "price": 299,
+        "quantity": 1
+      },
+      {
+        "name": "Fresh Veggie Pizza (Regular Extra Jalapenos and Olives)",
+        "price": 299,
+        "quantity": 1
+      },
+      {
+        "name": "3 FOR 99* Combo Offer Special Meal",
+        "price": 99,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "id": "ORD-754853",
+    "type": "dine_in",
+    "tableNumber": "2",
+    "customerName": "John Doe",
+    "phone": "9876543210",
+    "address": "",
+    "mapUrl": "",
+    "subtotal": 278,
+    "bogoDiscount": 139,
+    "serviceCharge": 13.9,
+    "taxes": 13.9,
+    "grandTotal": 152.9,
+    "status": "completed",
+    "date": "2026-08-09",
+    "createdAt": "2026-08-09T05:05:43.539Z",
+    "items": [
+      {
+        "name": "Double Cheese Margherita Pizza (Regular)",
+        "price": 139,
+        "quantity": 1
+      },
+      {
+        "name": "Fresh Veggie Pizza (Regular)",
+        "price": 139,
+        "quantity": 1
+      }
+    ],
+    "updatedAt": "2026-08-09T05:06:31.733Z"
+  }
+]

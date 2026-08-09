@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orange Cafe – Kitchen Staff App</title>
+  <link rel="icon" href="/favicon.png" type="image/png">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Socket.io Client -->
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  
+  <!-- React & Babel for standalone execution -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- PDF Generation Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .font-heading { font-family: 'Outfit', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen">
+  <div id="root"></div>
+
+  <!-- Staff Application Code -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function StaffApp() {
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [pin, setPin] = useState('');
+      const [loginError, setLoginError] = useState('');
+      
+      const [orders, setOrders] = useState([]);
+      const [orderTypeFilter, setOrderTypeFilter] = useState('all'); // 'all' | 'dine_in' | 'online' | 'history'
+      const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'preparing' | 'ready' | 'completed'
+
+      // Past Orders History State
+      const [pastHistory, setPastHistory] = useState([]);
+      const [selectedPastDate, setSelectedPastDate] = useState(null);
+      const [selectedDateOrders, setSelectedDateOrders] = useState([]);
+      const [loadingHistory, setLoadingHistory] = useState(false);
+
+      // Table Reservations System State
+      const [reservations, setReservations] = useState([]);
+
+      // Stock Management State
+      const [stockMap, setStockMap] = useState({});
+      const [historySearchQuery, setHistorySearchQuery] = useState('');
+
+      const [isConnected, setIsConnected] = useState(false);
+      const [isMuted, setIsMuted] = useState(false);
+
+      // Live Timer Engine
+      const [now, setNow] = useState(Date.now());
+      useEffect(() => {
+        const timer = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(timer);
+      }, []);
+
+      const getElapsedTime = (createdAt) => {
+        if (!createdAt) return { text: '0m 0s', status: 'green' };
+        const diffMs = Math.max(0, now - new Date(createdAt).getTime());
+        const totalSec = Math.floor(diffMs / 1000);
+        const mins = Math.floor(totalSec / 60);
+        const secs = totalSec % 60;
+        let status = 'green';
+        if (mins >= 10) status = 'red';
+        else if (mins >= 5) status = 'amber';
+        return { text: `${mins}m ${secs}s`, status };
+      };
+
+      const audioCtxRef = useRef(null);
+
+      // Web Audio Chime Engine
+      const playChime = () => {
+        if (isMuted) return;
+        try {
+          if (!audioCtxRef.current) {
+            audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          const ctx = audioCtxRef.current;
+          if (ctx.state === 'suspended') ctx.resume();
+
+          const now = ctx.currentTime;
+          
+          const osc1 = ctx.createOscillator();
+          const gain1 = ctx.createGain();
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(880, now);
+          gain1.gain.setValueAtTime(0.3, now);
+          gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc1.connect(gain1);
+          gain1.connect(ctx.destination);
+          osc1.start(now);
+          osc1.stop(now + 0.3);
+
+          const osc2 = ctx.createOscillator();
+          const gain2 = ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(1174.66, now + 0.15);
+          gain2.gain.setValueAtTime(0.4, now + 0.15);
+          gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          osc2.start(now + 0.15);
+          osc2.stop(now + 0.6);
+        } catch (e) {
+          console.warn('Audio chime error:', e);
+        }
+      };
+
+      // Fetch Today's Orders
+      const fetchTodayOrders = async () => {
+        try {
+          const res = await fetch('/api/orders');
+          const data = await res.json();
+          if (data.success) {
+            setOrders(data.orders);
+          }
+        } catch (e) {
+          console.warn('Fetch today orders error:', e);
+        }
+      };
+
+      // Fetch Table Reservations
+      const fetchReservations = async () => {
+        try {
+          const res = await fetch('/api/reservations');
+          const data = await res.json();
+          if (data.success) {
+            setReservations(data.reservations);
+          }
+        } catch (e) {
+          console.warn('Fetch reservations error:', e);
+        }
+      };
+
+      // Fetch Past Orders History Summary
+      const fetchPastHistory = async () => {
+        setLoadingHistory(true);
+        try {
+          const res = await fetch('/api/orders/history');
+          const data = await res.json();
+          if (data.success) {
+            setPastHistory(data.history);
+          }
+        } catch (e) {
+          console.warn('Fetch past history error:', e);
+        } finally {
+          setLoadingHistory(false);
+        }
+      };
+
+      // Fetch Detailed Orders for a Specific Past Date
+      const fetchOrdersForDate = async (dateStr) => {
+        setSelectedPastDate(dateStr);
+        try {
+          const res = await fetch(`/api/orders/history/${dateStr}`);
+          const data = await res.json();
+          if (data.success) {
+            setSelectedDateOrders(data.orders);
+          }
+        } catch (e) {
+          console.warn('Fetch date orders error:', e);
+        }
+      };
+
+      useEffect(() => {
+        if (!isLoggedIn) return;
+
+        fetchTodayOrders();
+        fetchReservations();
+
+        let socket = null;
+        try {
+          if (window.io) {
+            socket = window.io();
+            socket.on('connect', () => setIsConnected(true));
+            socket.on('disconnect', () => setIsConnected(false));
+            socket.on('order:new', (newOrder) => {
+              setOrders(prev => [newOrder, ...prev]);
+              playChime();
+            });
+            socket.on('order:status_update', ({ id, status }) => {
+              setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+            });
+            socket.on('reservation:new', (newRes) => {
+              setReservations(prev => [newRes, ...prev]);
+              playChime();
+            });
+            socket.on('reservation:status_update', ({ id, status }) => {
+              setReservations(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+            });
+          }
+        } catch(e) {}
+
+        const interval = setInterval(() => {
+          fetchTodayOrders();
+          fetchReservations();
+        }, 5000);
+
+        return () => {
+          clearInterval(interval);
+          if (socket) socket.disconnect();
+        };
+      }, [isLoggedIn]);
+
+      const handleLogin = (e) => {
+        e.preventDefault();
+        if (pin === '1234' || pin === '7043') {
+          setIsLoggedIn(true);
+          try {
+            audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+          } catch(e) {}
+        } else {
+          setLoginError('Invalid PIN. Use 1234');
+        }
+      };
+
+      const updateStatus = async (order, status) => {
+        setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status } : o));
+        
+        // If Online order and accepting, trigger WhatsApp bill dispatch
+        if (order.type === 'online' && status === 'preparing') {
+          openWhatsAppBill(order);
+        }
+
+        try {
+          await fetch(`/api/orders/${order.id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+          });
+        } catch(e) {
+          fetchTodayOrders();
+        }
+      };
+
+      const updateReservationStatus = async (reservation, status) => {
+        setReservations(prev => prev.map(r => r.id === reservation.id ? { ...r, status } : r));
+        try {
+          await fetch(`/api/reservations/${reservation.id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+          });
+        } catch(e) {
+          fetchReservations();
+        }
+      };
+
+      const viewBillInNewTab = (orderId) => {
+        window.open(`/api/orders/${orderId}/pdf`, '_blank');
+      };
+
+      const openWhatsAppBill = async (order) => {
+        const pdfUrl = `${window.location.origin}/api/orders/${order.id}/pdf`;
+        window.open(pdfUrl, '_blank');
+
+        let text = order.type === 'dine_in'
+          ? `🍊 *ORANGE CAFE - DINE-IN BILL RECEIPT*\n`
+          : `🍊 *ORANGE CAFE - ONLINE ORDER BILL RECEIPT*\n`;
+        text += `===============================\n`;
+        text += `📄 *Order ID*: ${order.id}\n`;
+        text += `👤 *Customer*: ${order.customerName || 'Guest'}\n`;
+        if (order.phone) text += `📞 *WhatsApp*: ${order.phone}\n`;
+        if (order.type === 'dine_in') {
+          text += `🍽️ *Table*: Table #${order.tableNumber || 1}\n`;
+        } else {
+          if (order.address) text += `🏠 *Address*: ${order.address}\n`;
+        }
+        text += `===============================\n`;
+        text += `Subtotal: ₹${Number(order.subtotal || 0).toFixed(2)}\n`;
+        if (order.bogoDiscount > 0) {
+          text += `Discount (Fixed): -₹${Number(order.bogoDiscount).toFixed(2)}\n`;
+        }
+        const sc = order.serviceCharge !== undefined ? order.serviceCharge : (order.taxes || 0);
+        text += `Service Charge (10%): ₹${Number(sc).toFixed(2)}\n`;
+        text += `*TOTAL PAYABLE: ₹${Number(order.grandTotal || 0).toFixed(2)}*\n`;
+        text += `===============================\n`;
+        text += `📄 *Download Official PDF Bill*: ${pdfUrl}\n`;
+        text += `Thank you for choosing Orange Cafe! 🍊\n`;
+
+        const encodedText = encodeURIComponent(text);
+        const targetPhone = (order.phone || '').replace(/\D/g, '') || '917623007043';
+        window.open(`https://wa.me/${targetPhone}?text=${encodedText}`, '_blank');
+      };
+
+      const sendBillAndComplete = async (order) => {
+        openWhatsAppBill(order);
+        await updateStatus(order, 'completed');
+      };
+
+      const fetchStock = async () => {
+        try {
+          const res = await fetch('/api/stock');
+          const data = await res.json();
+          if (data.success) setStockMap(data.stock || {});
+        } catch (e) {}
+      };
+
+      const toggleStock = async (itemId, currentInStock) => {
+        const nextInStock = !currentInStock;
+        setStockMap(prev => ({ ...prev, [itemId]: nextInStock }));
+        try {
+          await fetch('/api/stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemId, inStock: nextInStock })
+          });
+        } catch (e) {
+          fetchStock();
+        }
+      };
+
+      const printPosReceipt = (order) => {
+        const sub = Number(order.subtotal || 0).toFixed(2);
+        const disc = Number(order.bogoDiscount || 0).toFixed(2);
+        const sc = Number(order.serviceCharge !== undefined ? order.serviceCharge : (order.taxes || 0)).toFixed(2);
+        const gt = Number(order.grandTotal || 0).toFixed(2);
+        const totalQty = (order.items || []).reduce((acc, i) => acc + i.quantity, 0);
+
+        const printHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Receipt - ${order.id}</title>
+            <style>
+              @page { size: 80mm auto; margin: 0; }
+              body { font-family: monospace; width: 72mm; margin: 0 auto; padding: 10px 0; font-size: 11px; color: #000; }
+              .center { text-align: center; }
+              .bold { font-weight: bold; }
+              .flex { display: flex; justify-content: space-between; }
+              .border { border-top: 1px dashed #000; margin: 6px 0; }
+              .item-row { margin-bottom: 4px; }
+            </style>
+          </head>
+          <body>
+            <div class="center bold" style="font-size: 14px;">ORANGE CAFE</div>
+            <div class="center">GF-38, BAKROL SQUARE, BAKROL</div>
+            <div class="center">V V NAGAR ANAND - 388115</div>
+            <div class="center">Ph: 07623007043</div>
+            <div class="border"></div>
+            <div class="flex"><span>Order #: ${order.id}</span><span>${new Date(order.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span></div>
+            <div class="flex"><span>Customer: ${order.customerName || 'Guest'}</span><span>${order.type === 'dine_in' ? 'T#' + (order.tableNumber || 1) : 'Online'}</span></div>
+            <div class="border"></div>
+            <div class="bold flex"><span>Item</span><span>Qty x Rate = Price</span></div>
+            <div class="border"></div>
+            ${(order.items || []).map(i => `
+              <div class="item-row">
+                <div>${i.name}</div>
+                <div class="flex"><span></span><span>${i.quantity} x ₹${i.price} = ₹${i.quantity * i.price}</span></div>
+              </div>
+            `).join('')}
+            <div class="border"></div>
+            <div class="flex"><span>Total Qty:</span><span>${totalQty}</span></div>
+            <div class="flex"><span>Sub Total:</span><span>₹${sub}</span></div>
+            ${order.bogoDiscount > 0 ? `<div class="flex"><span>Discount (Fixed):</span><span>-₹${disc}</span></div>` : ''}
+            <div class="flex"><span>Service Charge (10%):</span><span>₹${sc}</span></div>
+            <div class="border"></div>
+            <div class="flex bold" style="font-size: 12px;"><span>TOTAL PAYABLE:</span><span>₹${gt}</span></div>
+            <div class="border"></div>
+            <div class="center">Thank you! Please visit again.</div>
+          </body>
+          </html>
+        `;
+        const printWindow = window.open('', '_blank', 'width=400,height=600');
+        printWindow.document.write(printHtml);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          try {
+            printWindow.print();
+          } catch(e) {}
+        }, 300);
+      };
+
+
+      // LOGIN SCREEN
+      if (!isLoggedIn) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-2xl">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-orange-500 text-white flex items-center justify-center mx-auto mb-4 text-3xl">
+                  🍊
+                </div>
+                <span className="text-xs font-bold uppercase tracking-widest text-orange-400">
+                  Kitchen Staff Application
+                </span>
+                <h2 className="font-heading font-extrabold text-2xl text-white mt-1">
+                  Staff Login
+                </h2>
+                <p className="text-slate-400 text-xs mt-1">
+                  Enter 4-digit Staff PIN to view live orders & unlock audio alerts.
+                </p>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-2">
+                    Staff PIN (Default: 1234)
+                  </label>
+                  <input
+                    type="password"
+                    maxLength="4"
+                    required
+                    placeholder="••••"
+                    value={pin}
+                    onChange={(e) => { setPin(e.target.value); setLoginError(''); }}
+                    className="w-full text-center text-3xl tracking-[0.5em] py-3 rounded-2xl bg-slate-800 border border-slate-700 text-white font-extrabold focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  {loginError && <p className="text-xs text-red-400 text-center font-semibold mt-2">{loginError}</p>}
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 hover:opacity-95"
+                >
+                  <span>🔊 Enable Kitchen Sound & Login</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        );
+      }
+
+      // Calculations
+      const dineInOrders = orders.filter(o => o.type === 'dine_in');
+      const onlineOrders = orders.filter(o => o.type === 'online');
+
+      const pendingCount = orders.filter(o => o.status === 'pending').length;
+      const preparingCount = orders.filter(o => o.status === 'preparing').length;
+      const readyCount = orders.filter(o => o.status === 'ready').length;
+      const completedCount = orders.filter(o => o.status === 'completed').length;
+      const totalRevenue = orders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
+
+      // Filtering orders by Type & Status
+      let displayedOrders = orders;
+      if (orderTypeFilter === 'dine_in') displayedOrders = dineInOrders;
+      if (orderTypeFilter === 'online') displayedOrders = onlineOrders;
+
+      if (statusFilter !== 'all') {
+        displayedOrders = displayedOrders.filter(o => o.status === statusFilter);
+      }
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          {/* Header */}
+          <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 sticky top-0 z-30">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">🍊</span>
+                <div>
+                  <h1 className="font-heading font-extrabold text-lg text-white">
+                    Orange Cafe Kitchen Staff App
+                  </h1>
+                  <span className="text-[10px] text-slate-400">Order Management & Kitchen Display</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${isConnected ? 'bg-green-950 text-green-400 border-green-700' : 'bg-amber-950 text-amber-400 border-amber-700'}`}>
+                  {isConnected ? '🟢 Live Sync' : '🟡 REST Polling'}
+                </span>
+
+                <button
+                  onClick={() => setIsMuted(!isMuted)}
+                  className={`p-2 rounded-xl border text-xs font-bold ${isMuted ? 'bg-red-950 border-red-800 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
+                >
+                  {isMuted ? '🔇 Muted' : '🔊 Chime On'}
+                </button>
+
+                <button
+                  onClick={() => setIsLoggedIn(false)}
+                  className="px-3 py-1.5 rounded-xl bg-red-600/20 border border-red-500/30 text-red-400 font-bold text-xs hover:bg-red-600 hover:text-white"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Body */}
+          <main className="max-w-7xl mx-auto w-full p-6 flex-1 space-y-6">
+            
+            {/* View Selection Tabs: Dine-In vs Online vs All vs Reservations vs Past History */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <button
+                onClick={() => setOrderTypeFilter('dine_in')}
+                className={`p-4 rounded-2xl border text-left transition-all ${orderTypeFilter === 'dine_in' ? 'bg-orange-500/20 border-orange-500 text-white ring-2 ring-orange-500/30' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'}`}
+              >
+                <span className="text-xs font-bold uppercase tracking-wider text-orange-400 block">🍽️ Dine-In View</span>
+                <span className="font-heading font-extrabold text-2xl text-white block mt-1">{dineInOrders.length} Orders</span>
+              </button>
+
+              <button
+                onClick={() => setOrderTypeFilter('online')}
+                className={`p-4 rounded-2xl border text-left transition-all ${orderTypeFilter === 'online' ? 'bg-green-500/20 border-green-500 text-white ring-2 ring-green-500/30' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'}`}
+              >
+                <span className="text-xs font-bold uppercase tracking-wider text-green-400 block">🛵 Online Delivery View</span>
+                <span className="font-heading font-extrabold text-2xl text-white block mt-1">{onlineOrders.length} Orders</span>
+              </button>
+
+              <button
+                onClick={() => setOrderTypeFilter('all')}
+                className={`p-4 rounded-2xl border text-left transition-all ${orderTypeFilter === 'all' ? 'bg-blue-500/20 border-blue-500 text-white ring-2 ring-blue-500/30' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'}`}
+              >
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-400 block">📋 All Today's View</span>
+                <span className="font-heading font-extrabold text-2xl text-white block mt-1">{orders.length} Orders</span>
+              </button>
+
+              <button
+                onClick={() => { setOrderTypeFilter('reservations'); fetchReservations(); }}
+                className={`p-4 rounded-2xl border text-left transition-all ${orderTypeFilter === 'reservations' ? 'bg-amber-500/20 border-amber-500 text-white ring-2 ring-amber-500/30' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'}`}
+              >
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block">📅 Reservations</span>
+                <span className="font-heading font-extrabold text-2xl text-amber-300 block mt-1">{reservations.length} Bookings</span>
+              </button>
+
+              <button
+                onClick={() => { setOrderTypeFilter('history'); fetchPastHistory(); }}
+                className={`p-4 rounded-2xl border text-left transition-all ${orderTypeFilter === 'history' ? 'bg-purple-500/20 border-purple-500 text-white ring-2 ring-purple-500/30' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'}`}
+              >
+                <span className="text-xs font-bold uppercase tracking-wider text-purple-400 block">📜 Past History</span>
+                <span className="font-heading font-extrabold text-2xl text-purple-300 block mt-1">View Archive</span>
+              </button>
+
+              <button
+                onClick={() => { setOrderTypeFilter('stock'); fetchStock(); }}
+                className={`p-4 rounded-2xl border text-left transition-all ${orderTypeFilter === 'stock' ? 'bg-emerald-500/20 border-emerald-500 text-white ring-2 ring-emerald-500/30' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'}`}
+              >
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 block">📦 Menu Stock</span>
+                <span className="font-heading font-extrabold text-2xl text-emerald-300 block mt-1">Stock Sync</span>
+              </button>
+            </div>
+
+            {/* TABLE RESERVATIONS VIEW */}
+            {orderTypeFilter === 'reservations' ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-heading font-extrabold text-xl text-amber-300">
+                    📅 Table Reservations Notifications ({reservations.length})
+                  </h3>
+                  <button
+                    onClick={fetchReservations}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 text-amber-400 font-bold text-xs hover:bg-slate-700"
+                  >
+                    🔄 Refresh Reservations
+                  </button>
+                </div>
+
+                {reservations.length === 0 ? (
+                  <div className="bg-slate-900 rounded-3xl p-12 text-center border border-slate-800 my-8">
+                    <h3 className="font-heading font-bold text-lg text-slate-400 mb-1">No Table Reservations Yet</h3>
+                    <p className="text-xs text-slate-500">Customer table bookings submitted from website will show up here live with sound notifications.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {reservations.map((resItem) => (
+                      <div
+                        key={resItem.id}
+                        className={`bg-slate-900 rounded-3xl p-5 border flex flex-col justify-between space-y-4 ${
+                          resItem.status === 'pending' ? 'border-amber-500 ring-2 ring-amber-500/30 animate-pulse' :
+                          resItem.status === 'confirmed' ? 'border-green-500/60' :
+                          resItem.status === 'seated' ? 'border-blue-500/60' : 'border-slate-800 opacity-60'
+                        }`}
+                      >
+                        <div>
+                          {/* Card Header */}
+                          <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+                            <div>
+                              <span className="text-xs font-mono text-amber-400 font-bold">#{resItem.id}</span>
+                              <span className="text-[10px] text-slate-500 block">{new Date(resItem.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                              resItem.status === 'pending' ? 'bg-amber-950 text-amber-300 border border-amber-800' :
+                              resItem.status === 'confirmed' ? 'bg-green-950 text-green-300 border border-green-800' :
+                              resItem.status === 'seated' ? 'bg-blue-950 text-blue-300 border border-blue-800' : 'bg-red-950 text-red-300 border border-red-800'
+                            }`}>
+                              {resItem.status}
+                            </span>
+                          </div>
+
+                          {/* Reservation Details */}
+                          <div className="py-3 text-xs space-y-2 border-b border-slate-800">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Customer Name:</span>
+                              <strong className="text-white">{resItem.customerName}</strong>
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Phone:</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-slate-200">{resItem.phone || 'N/A'}</span>
+                                {resItem.phone && (
+                                  <>
+                                    <a href={`tel:${resItem.phone}`} className="px-2 py-0.5 rounded bg-slate-800 text-green-400 font-bold text-[11px]">Call</a>
+                                    <a href={`https://wa.me/${resItem.phone.replace(/\D/g, '')}`} target="_blank" className="px-2 py-0.5 rounded bg-slate-800 text-green-400 font-bold text-[11px]">WhatsApp</a>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Date & Time:</span>
+                              <strong className="text-amber-400">{resItem.date} at {resItem.time}</strong>
+                            </div>
+
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Guests Count:</span>
+                              <strong className="text-slate-200">👥 {resItem.guests}</strong>
+                            </div>
+
+                            {resItem.specialNotes && (
+                              <div className="pt-1">
+                                <span className="text-slate-400 block mb-0.5">Special Request / Notes:</span>
+                                <p className="text-slate-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-[11px] italic">
+                                  "{resItem.specialNotes}"
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="pt-2 space-y-2">
+                          {resItem.status === 'pending' && (
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                onClick={() => updateReservationStatus(resItem, 'confirmed')}
+                                className="py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-xs shadow"
+                              >
+                                Confirm Booking ✓
+                              </button>
+                              <button
+                                onClick={() => updateReservationStatus(resItem, 'cancelled')}
+                                className="py-2.5 rounded-xl bg-red-950 text-red-400 hover:bg-red-900 border border-red-800 font-bold text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
+
+                          {resItem.status === 'confirmed' && (
+                            <button
+                              onClick={() => updateReservationStatus(resItem, 'seated')}
+                              className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow"
+                            >
+                              Mark Seated 🍽️
+                            </button>
+                          )}
+
+                          {(resItem.status === 'seated' || resItem.status === 'cancelled') && (
+                            <div className="text-center py-1.5 text-xs text-slate-500 font-bold bg-slate-950 rounded-xl">
+                              {resItem.status === 'seated' ? '✓ Guests Seated' : '✕ Cancelled'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : orderTypeFilter === 'history' ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-heading font-extrabold text-xl text-purple-300">
+                    📜 Past Daily Order Archives (Stored in ServerSide/Orders/)
+                  </h3>
+                  {selectedPastDate && (
+                    <button
+                      onClick={() => setSelectedPastDate(null)}
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700"
+                    >
+                      ← Back to History List
+                    </button>
+                  )}
+                </div>
+
+                {selectedPastDate ? (
+                  /* Detailed Orders for Selected Date */
+                  <div className="space-y-4">
+                    <div className="bg-purple-950/40 p-4 rounded-2xl border border-purple-800/60 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                      <div>
+                        <span className="text-xs text-purple-300 font-bold uppercase">Archived Date:</span>
+                        <h4 className="font-heading font-extrabold text-2xl text-white">{selectedPastDate}</h4>
+                      </div>
+
+                      <div className="flex items-center gap-3 w-full md:w-auto">
+                        <input
+                          type="text"
+                          placeholder="🔍 Search Order #, Name, Phone..."
+                          value={historySearchQuery}
+                          onChange={(e) => setHistorySearchQuery(e.target.value)}
+                          className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white focus:outline-none focus:border-purple-500 w-full md:w-64"
+                        />
+                        <span className="text-xs font-bold bg-purple-900/80 px-3 py-1.5 rounded-xl text-purple-200 shrink-0">
+                          {selectedDateOrders.filter(o => {
+                            if (!historySearchQuery) return true;
+                            const q = historySearchQuery.toLowerCase();
+                            return o.id.toLowerCase().includes(q) || (o.customerName && o.customerName.toLowerCase().includes(q)) || (o.phone && o.phone.toLowerCase().includes(q));
+                          }).length} Orders
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {selectedDateOrders.filter(o => {
+                        if (!historySearchQuery) return true;
+                        const q = historySearchQuery.toLowerCase();
+                        return o.id.toLowerCase().includes(q) || (o.customerName && o.customerName.toLowerCase().includes(q)) || (o.phone && o.phone.toLowerCase().includes(q));
+                      }).map(order => (
+                        <div key={order.id} className="bg-slate-900 rounded-3xl p-5 border border-slate-800 space-y-3">
+                          <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+                            <div>
+                              <span className="text-xs font-mono text-slate-400">#{order.id}</span>
+                              <span className="text-[10px] text-slate-500 block">{new Date(order.createdAt).toLocaleTimeString()}</span>
+                            </div>
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${order.type === 'dine_in' ? 'bg-orange-950 text-orange-300 border border-orange-800' : 'bg-green-950 text-green-300 border border-green-800'}`}>
+                              {order.type === 'dine_in' ? `Table #${order.tableNumber}` : 'Online Delivery'}
+                            </span>
+                          </div>
+
+                          <div className="text-xs space-y-1">
+                            <p><span className="text-slate-400">Customer:</span> <strong className="text-slate-200">{order.customerName}</strong></p>
+                            {order.phone && <p><span className="text-slate-400">Phone:</span> <strong className="text-slate-200">{order.phone}</strong></p>}
+                            {order.address && <p className="text-slate-400 truncate"><span className="text-slate-500">Address:</span> {order.address}</p>}
+                          </div>
+
+                          <div className="space-y-1 bg-slate-950 p-3 rounded-2xl border border-slate-800/80 text-xs">
+                            {order.items.map((it, idx) => (
+                              <div key={idx} className="flex justify-between">
+                                <span>{it.quantity}x {it.name}</span>
+                                <span className="font-bold text-orange-400">₹{it.price * it.quantity}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-800 flex justify-between items-center font-bold text-sm">
+                            <div>
+                              <span className="text-slate-400 text-xs block">Total:</span>
+                              <span className="text-green-400">₹{order.grandTotal}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => printPosReceipt(order)}
+                                className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold text-xs flex items-center gap-1 shadow"
+                                title="Print 80mm POS Receipt"
+                              >
+                                <span>🖨️ POS</span>
+                              </button>
+                              <button
+                                onClick={() => viewBillInNewTab(order.id)}
+                                className="px-2.5 py-1.5 rounded-xl bg-purple-950 hover:bg-purple-900 text-purple-200 border border-purple-700 font-bold text-xs flex items-center gap-1 shadow"
+                              >
+                                <span>📄 PDF</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  /* Past Dates Summary Cards Grid */
+                  loadingHistory ? (
+                    <p className="text-slate-400 text-sm">Loading archive list...</p>
+                  ) : pastHistory.length === 0 ? (
+                    <p className="text-slate-400 text-sm">No past order archives found yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {pastHistory.map(item => (
+                        <div
+                          key={item.date}
+                          onClick={() => fetchOrdersForDate(item.date)}
+                          className="bg-slate-900 hover:bg-slate-800/80 cursor-pointer p-5 rounded-3xl border border-slate-800 hover:border-purple-500 transition-all space-y-3 group"
+                        >
+                          <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                            <span className="font-heading font-extrabold text-lg text-white group-hover:text-purple-300">
+                              📅 {item.date}
+                            </span>
+                            <span className="text-[10px] font-bold bg-purple-950 text-purple-300 px-2.5 py-0.5 rounded-full border border-purple-800">
+                              Click to Expand
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="bg-slate-950 p-2.5 rounded-xl">
+                              <span className="text-slate-400 block">Total Orders</span>
+                              <span className="font-heading font-extrabold text-base text-slate-200">{item.totalOrders}</span>
+                            </div>
+                            <div className="bg-slate-950 p-2.5 rounded-xl">
+                              <span className="text-slate-400 block">Money Earned</span>
+                              <span className="font-heading font-extrabold text-base text-green-400">₹{item.totalRevenue}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+              </div>
+            ) : orderTypeFilter === 'stock' ? (
+              /* MENU STOCK MANAGEMENT VIEW */
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-heading font-extrabold text-xl text-emerald-300">
+                    📦 Real-Time Menu Item Availability & Stock Control
+                  </h3>
+                  <button
+                    onClick={fetchStock}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 text-emerald-400 font-bold text-xs hover:bg-slate-700"
+                  >
+                    🔄 Refresh Stock
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { id: 'pizza-double-cheese-margherita', name: 'Double Cheese Margherita Pizza', category: 'Pizzas' },
+                    { id: 'pizza-fresh-veggie', name: 'Fresh Veggie Pizza', category: 'Pizzas' },
+                    { id: 'pizza-7-cheese', name: '7 Cheese Pizza', category: 'Pizzas' },
+                    { id: 'pizza-mexican-green-wave', name: 'Mexican Green Wave Pizza', category: 'Pizzas' },
+                    { id: 'pizza-peppy-paneer', name: 'Peppy Paneer Pizza', category: 'Pizzas' },
+                    { id: 'pizza-farmhouse-special', name: 'Farmhouse Special Pizza', category: 'Pizzas' },
+                    { id: 'burger-crispy-veg-classic', name: 'Crispy Veg Classic Burger', category: 'Burgers' },
+                    { id: 'burger-spicy-paneer-crunch', name: 'Spicy Paneer Crunch Burger', category: 'Burgers' },
+                    { id: 'fries-peri-peri-loaded', name: 'Peri Peri Loaded Fries', category: 'Fries' },
+                    { id: 'drink-orange-citrus-frappe', name: 'Orange Citrus Special Frappe', category: 'Drinks' },
+                  ].map(item => {
+                    const inStock = stockMap[item.id] !== false; // default to true
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-4 rounded-2xl border flex items-center justify-between ${
+                          inStock ? 'bg-slate-900 border-slate-800' : 'bg-red-950/30 border-red-800/80'
+                        }`}
+                      >
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">{item.category}</span>
+                          <strong className="text-sm font-bold text-white block">{item.name}</strong>
+                          <span className={`text-[11px] font-bold ${inStock ? 'text-green-400' : 'text-red-400'}`}>
+                            {inStock ? '🟢 Available In Stock' : '🔴 Out of Stock'}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => toggleStock(item.id, inStock)}
+                          className={`px-3.5 py-2 rounded-xl font-extrabold text-xs transition-all shadow ${
+                            inStock
+                              ? 'bg-red-600/20 text-red-300 border border-red-500/40 hover:bg-red-600 hover:text-white'
+                              : 'bg-green-600 text-white hover:bg-green-500'
+                          }`}
+                        >
+                          {inStock ? 'Mark Out of Stock' : 'Mark In Stock'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* ORDERS GRID (Dine-In / Online / All) */
+              <>
+                {/* Status Sub-Filters */}
+                <div className="flex gap-2 overflow-x-auto pb-2 border-b border-slate-800">
+                  {[
+                    { id: 'all', label: `All Statuses (${displayedOrders.length})` },
+                    { id: 'pending', label: `🟡 Pending Confirmation (${displayedOrders.filter(o => o.status === 'pending').length})` },
+                    { id: 'preparing', label: `🟠 Preparing (${displayedOrders.filter(o => o.status === 'preparing').length})` },
+                    { id: 'ready', label: `🟢 Ready (${displayedOrders.filter(o => o.status === 'ready').length})` },
+                    { id: 'completed', label: `⚪ Completed (${displayedOrders.filter(o => o.status === 'completed').length})` },
+                  ].map(sub => (
+                    <button
+                      key={sub.id}
+                      onClick={() => setStatusFilter(sub.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold ${statusFilter === sub.id ? 'bg-slate-700 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Ticket Grid */}
+                {displayedOrders.length === 0 ? (
+                  <div className="bg-slate-900 rounded-3xl p-12 text-center border border-slate-800 my-8">
+                    <h3 className="font-heading font-bold text-lg text-slate-400 mb-1">No Active Orders</h3>
+                    <p className="text-xs text-slate-500">New customer orders will automatically show up here in real time.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {displayedOrders.map(order => (
+                      <div
+                        key={order.id}
+                        className={`bg-slate-900 rounded-3xl p-5 border flex flex-col justify-between transition-all ${
+                          order.status === 'pending' ? 'border-amber-500 ring-2 ring-amber-500/30 animate-pulse' :
+                          order.status === 'preparing' ? 'border-orange-500/60' :
+                          order.status === 'ready' ? 'border-green-500/60' : 'border-slate-800 opacity-80'
+                        }`}
+                      >
+                        <div>
+                          {/* Header */}
+                          <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+                            <div>
+                              <span className="text-xs font-mono text-slate-400">#{order.id}</span>
+                              <span className="text-[10px] text-slate-500 block">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+
+                            {order.type === 'dine_in' ? (
+                              <span className="bg-orange-950 text-orange-300 border border-orange-500/50 px-3 py-1 rounded-full text-xs font-bold">
+                                🍽️ Table #{order.tableNumber || 1}
+                              </span>
+                            ) : (
+                              <span className="bg-green-950 text-green-300 border border-green-500/50 px-3 py-1 rounded-full text-xs font-bold">
+                                🛵 Online Delivery
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Customer Details */}
+                          <div className="py-3 text-xs space-y-1.5 border-b border-slate-800">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Customer:</span>
+                              <span className="font-bold text-slate-200">{order.customerName || 'Guest'}</span>
+                            </div>
+
+                            {order.phone && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400">Phone:</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-slate-200">{order.phone}</span>
+                                  <a href={`tel:${order.phone}`} className="px-2 py-0.5 rounded bg-slate-800 text-green-400 font-bold">Call</a>
+                                  <a href={`https://wa.me/${order.phone.replace(/\D/g, '')}`} target="_blank" className="px-2 py-0.5 rounded bg-slate-800 text-green-400 font-bold">WhatsApp</a>
+                                </div>
+                              </div>
+                            )}
+
+                            {order.type === 'online' && order.address && (
+                              <div className="pt-1">
+                                <div className="flex justify-between text-slate-400">
+                                  <span>Address:</span>
+                                  {order.mapUrl && <a href={order.mapUrl} target="_blank" className="text-green-400 underline font-bold text-[10px]">Map Pin</a>}
+                                </div>
+                                <p className="text-slate-300 bg-slate-950 p-2 rounded-xl border border-slate-800 text-[11px] mt-1">{order.address}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Item List */}
+                          <div className="py-3 space-y-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Ordered Items ({order.items.length})</span>
+                            {order.items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between text-xs bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
+                                <span className="font-bold text-white">{item.quantity}x {item.name}</span>
+                                <span className="text-orange-400 font-bold">₹{item.price * item.quantity}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Handshake Status Action Buttons & Timers */}
+                        <div className="pt-3 border-t border-slate-800 space-y-2">
+                          {/* Live Kitchen Preparation Timer */}
+                          {(() => {
+                            const elapsed = getElapsedTime(order.createdAt);
+                            return (
+                              <div className="flex justify-between items-center text-xs pb-1.5 border-b border-slate-800/60">
+                                <span className="text-slate-400 font-semibold">Kitchen Timer:</span>
+                                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${
+                                  elapsed.status === 'green' ? 'bg-green-950 text-green-300 border-green-800' :
+                                  elapsed.status === 'amber' ? 'bg-amber-950 text-amber-300 border-amber-800' :
+                                  'bg-red-950 text-red-300 border-red-800 animate-pulse'
+                                }`}>
+                                  ⏱️ {elapsed.text}
+                                </span>
+                              </div>
+                            );
+                          })()}
+
+                          <div className="text-xs space-y-1">
+                            <div className="flex justify-between text-slate-400">
+                              <span>Subtotal:</span>
+                              <span>₹{order.subtotal || 0}</span>
+                            </div>
+                            {order.bogoDiscount > 0 && (
+                              <div className="flex justify-between text-green-400 font-bold">
+                                <span>🎁 BOGO Discount:</span>
+                                <span>-₹{order.bogoDiscount}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between text-slate-400">
+                              <span>Service Charge (10%):</span>
+                              <span>₹{order.serviceCharge !== undefined ? order.serviceCharge : (order.taxes || 0)}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between text-sm font-extrabold pt-1 border-t border-slate-800">
+                            <span className="text-slate-400">Grand Total:</span>
+                            <span className="text-green-400">₹{order.grandTotal}</span>
+                          </div>
+
+                          {order.status === 'pending' && (
+                            <button
+                              onClick={() => updateStatus(order, 'preparing')}
+                              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-extrabold text-xs shadow-lg animate-bounce"
+                            >
+                              {order.type === 'dine_in' ? 'Accept & Start Preparing ➔' : 'Confirm Order & Send Bill ➔'}
+                            </button>
+                          )}
+
+                          {order.status === 'preparing' && (
+                            <button
+                              onClick={() => updateStatus(order, 'ready')}
+                              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-green-600 text-white font-extrabold text-xs shadow-lg"
+                            >
+                              Mark Ready ➔
+                            </button>
+                          )}
+
+                          {order.status === 'ready' && (
+                            <div className="space-y-2">
+                              <button
+                                onClick={() => sendBillAndComplete(order)}
+                                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-green-600 to-emerald-500 text-white font-extrabold text-xs shadow-lg flex items-center justify-center gap-2 hover:opacity-95"
+                              >
+                                <span>💬 Send PDF Bill via WhatsApp</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {order.status === 'completed' && (
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  onClick={() => printPosReceipt(order)}
+                                  className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center justify-center gap-1 shadow"
+                                >
+                                  <span>🖨️ POS Print</span>
+                                </button>
+                                <button
+                                  onClick={() => viewBillInNewTab(order.id)}
+                                  className="py-2.5 rounded-xl bg-purple-950 hover:bg-purple-900 text-purple-200 border border-purple-700 font-bold text-xs flex items-center justify-center gap-1 shadow"
+                                >
+                                  <span>📄 PDF Bill</span>
+                                </button>
+                              </div>
+                              <div className="text-center py-1 text-xs text-slate-500 font-bold bg-slate-950 rounded-xl">
+                                ✓ Completed Order
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<StaffApp />);
+  </script>
+</body>
+</html>

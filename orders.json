@@ -1,0 +1,87 @@
+[
+  {
+    "id": "ORD-425404",
+    "type": "dine_in",
+    "tableNumber": "4",
+    "customerName": "Guest",
+    "phone": "",
+    "address": "",
+    "mapUrl": "",
+    "subtotal": 1253,
+    "taxes": 63,
+    "grandTotal": 1316,
+    "status": "completed",
+    "createdAt": "2026-08-08T16:26:25.656Z",
+    "items": [
+      {
+        "name": "7 Cheese Pizza",
+        "price": 179,
+        "quantity": 7
+      }
+    ],
+    "updatedAt": "2026-08-08T17:13:53.311Z"
+  },
+  {
+    "id": "ORD-308108",
+    "type": "dine_in",
+    "tableNumber": "5",
+    "customerName": "Guest",
+    "phone": "",
+    "address": "",
+    "mapUrl": "",
+    "subtotal": 1253,
+    "taxes": 63,
+    "grandTotal": 1316,
+    "status": "pending",
+    "createdAt": "2026-08-08T16:24:29.430Z",
+    "items": [
+      {
+        "name": "7 Cheese Pizza",
+        "price": 179,
+        "quantity": 7
+      }
+    ]
+  },
+  {
+    "id": "ORD-515040",
+    "type": "dine_in",
+    "tableNumber": "9",
+    "customerName": "Guest",
+    "phone": "",
+    "address": "",
+    "mapUrl": "",
+    "subtotal": 1253,
+    "taxes": 63,
+    "grandTotal": 1316,
+    "status": "pending",
+    "createdAt": "2026-08-08T16:23:11.960Z",
+    "items": [
+      {
+        "name": "7 Cheese Pizza",
+        "price": 179,
+        "quantity": 7
+      }
+    ]
+  },
+  {
+    "id": "ORD-716172",
+    "type": "dine_in",
+    "tableNumber": "5",
+    "customerName": "Guest",
+    "phone": "",
+    "address": "",
+    "mapUrl": "",
+    "subtotal": 1253,
+    "taxes": 63,
+    "grandTotal": 1316,
+    "status": "pending",
+    "createdAt": "2026-08-08T16:22:21.105Z",
+    "items": [
+      {
+        "name": "7 Cheese Pizza",
+        "price": 179,
+        "quantity": 7
+      }
+    ]
+  }
+]

@@ -1,0 +1,63 @@
+[
+  {
+    "id": "ORD-648850",
+    "type": "dine_in",
+    "tableNumber": "2",
+    "customerName": "harsh",
+    "phone": "",
+    "address": "",
+    "mapUrl": "",
+    "subtotal": 318,
+    "taxes": 16,
+    "grandTotal": 334,
+    "status": "ready",
+    "date": "2026-08-08",
+    "createdAt": "2026-08-08T18:00:50.616Z",
+    "items": [
+      {
+        "name": "Farm Fresh Pizza (Regular)",
+        "price": 179,
+        "quantity": 1
+      },
+      {
+        "name": "Double Cheese Margherita Pizza (Regular)",
+        "price": 139,
+        "quantity": 1
+      }
+    ],
+    "updatedAt": "2026-08-08T18:01:03.685Z"
+  },
+  {
+    "id": "ORD-630863",
+    "type": "dine_in",
+    "tableNumber": "2",
+    "customerName": "harsh",
+    "phone": "",
+    "address": "",
+    "mapUrl": "",
+    "subtotal": 716,
+    "taxes": 36,
+    "grandTotal": 752,
+    "status": "completed",
+    "date": "2026-08-08",
+    "createdAt": "2026-08-08T17:48:37.330Z",
+    "items": [
+      {
+        "name": "7 Cheese Pizza (Regular)",
+        "price": 179,
+        "quantity": 2
+      },
+      {
+        "name": "Orange Special Pizza (Regular)",
+        "price": 179,
+        "quantity": 1
+      },
+      {
+        "name": "Paneer Butter Masala Pizza (Regular)",
+        "price": 179,
+        "quantity": 1
+      }
+    ],
+    "updatedAt": "2026-08-08T17:50:01.886Z"
+  }
+]
