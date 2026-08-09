@@ -1340,6 +1340,21 @@
                                 <button onClick={() => openWhatsAppBill(order)} className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold hover:bg-green-200">WhatsApp</button>
                               </p>
                             )}
+                            {order.type === 'online' && (
+                              <div className="pt-1.5 space-y-1">
+                                <p><span className="text-slate-400 font-semibold">Address:</span> <strong className="text-slate-800">{order.address || 'Delivery Order'}</strong></p>
+                                {order.mapUrl && (
+                                  <a
+                                    href={order.mapUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[11px] inline-flex items-center gap-1.5 shadow-sm transition-all"
+                                  >
+                                    <span>📍 Open Google Maps Location</span>
+                                  </a>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           {/* Ordered Items Table */}
