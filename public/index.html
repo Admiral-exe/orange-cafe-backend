@@ -1371,16 +1371,25 @@
                               </p>
                             )}
                             {order.type === 'online' && (
-                              <div className="pt-1.5 space-y-1">
-                                <p><span className="text-slate-400 font-semibold">Address:</span> <strong className="text-slate-800">{order.address || 'Delivery Order'}</strong></p>
-                                {order.mapUrl && (
+                              <div className="pt-1.5 space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200 mt-2 text-xs">
+                                {order.deliveryAddress ? (
+                                  <>
+                                    {order.deliveryAddress.houseNo && <p><span className="text-slate-400 font-semibold">House/Flat:</span> <strong className="text-slate-900">{order.deliveryAddress.houseNo}</strong></p>}
+                                    {order.deliveryAddress.landmark && <p><span className="text-slate-400 font-semibold">Landmark:</span> <strong className="text-slate-800">{order.deliveryAddress.landmark}</strong></p>}
+                                    <p><span className="text-slate-400 font-semibold">Area:</span> <span className="text-slate-700 font-medium">{order.deliveryAddress.fullAddress}</span></p>
+                                  </>
+                                ) : (
+                                  <p><span className="text-slate-400 font-semibold">Address:</span> <strong className="text-slate-800">{order.address || 'Standard Delivery'}</strong></p>
+                                )}
+
+                                {(order.mapUrl || (order.deliveryAddress && order.deliveryAddress.googleMapsUrl)) && (
                                   <a
-                                    href={order.mapUrl}
+                                    href={(order.deliveryAddress && order.deliveryAddress.googleMapsUrl) ? order.deliveryAddress.googleMapsUrl : order.mapUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="mt-1 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[11px] inline-flex items-center gap-1.5 shadow-sm transition-all"
+                                    className="mt-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition-all w-full"
                                   >
-                                    <span>📍 Open Google Maps Location</span>
+                                    <span>📍 Open Delivery Location in Google Maps</span>
                                   </a>
                                 )}
                               </div>
