@@ -64,6 +64,19 @@ app.get('/api/orders', async (req, res) => {
   }
 });
 
+// GET /api/orders/:id - Fetch single order details for live customer tracking
+app.get('/api/orders/:id', async (req, res) => {
+  try {
+    const order = await getOrderById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    res.json({ success: true, order });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET /api/orders/:id/pdf - Server-Side High DPI PDF Stream
 app.get('/api/orders/:id/pdf', async (req, res) => {
   try {
