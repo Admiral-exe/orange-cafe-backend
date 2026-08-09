@@ -9,7 +9,8 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Socket.io Client -->
+  <!-- Socket.io Client (Local Express Endpoint & CDN Fallback) -->
+  <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   
   <!-- React & Babel for standalone execution -->
@@ -224,43 +225,48 @@
         if (!isLoggedIn) return;
         fetchInitialData();
 
-        const socket = io();
-        socket.on('connect', () => setIsConnected(true));
-        socket.on('disconnect', () => setIsConnected(false));
+        let socket = null;
+        if (typeof io !== 'undefined') {
+          try {
+            socket = io();
+            socket.on('connect', () => setIsConnected(true));
+            socket.on('disconnect', () => setIsConnected(false));
 
-        socket.on('order:new', (newOrder) => {
-          setOrders((prev) => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
-          playOrderAlertSound();
-        });
+            socket.on('order:new', (newOrder) => {
+              setOrders((prev) => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
+              playOrderAlertSound();
+            });
 
-        socket.on('order:status_update', (updatedOrder) => {
-          setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
-        });
+            socket.on('order:status_update', (updatedOrder) => {
+              setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
+            });
 
-        socket.on('reservation:new', (newRes) => {
-          setReservations((prev) => [newRes, ...prev]);
-          playOrderAlertSound();
-        });
+            socket.on('reservation:new', (newRes) => {
+              setReservations((prev) => [newRes, ...prev]);
+              playOrderAlertSound();
+            });
 
-        socket.on('reservation:status_update', (updatedRes) => {
-          setReservations((prev) => prev.map((r) => (r.id === updatedRes.id ? updatedRes : r)));
-        });
+            socket.on('reservation:status_update', (updatedRes) => {
+              setReservations((prev) => prev.map((r) => (r.id === updatedRes.id ? updatedRes : r)));
+            });
 
-        socket.on('stock:update', (updatedStock) => {
-          setStockMap(updatedStock);
-        });
+            socket.on('stock:update', (updatedStock) => {
+              setStockMap(updatedStock);
+            });
 
-        socket.on('menu:update', (store) => {
-          if (store) {
-            setMenuCategories(store.categories || []);
-            setMenuItems(store.items || []);
-          }
-        });
+            socket.on('menu:update', (store) => {
+              if (store) {
+                setMenuCategories(store.categories || []);
+                setMenuItems(store.items || []);
+              }
+            });
+          } catch(e) {}
+        }
 
         const pollingTimer = setInterval(fetchInitialData, 5000);
 
         return () => {
-          socket.disconnect();
+          if (socket) socket.disconnect();
           clearInterval(pollingTimer);
         };
       }, [isLoggedIn]);
