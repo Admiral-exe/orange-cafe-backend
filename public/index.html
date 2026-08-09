@@ -838,10 +838,15 @@
                         </div>
 
                         <div className="text-xs space-y-1">
-                          <p><span className="text-slate-500">Guest Name:</span> <strong className="text-slate-900">{resItem.name}</strong></p>
+                          <p><span className="text-slate-500">Guest Name:</span> <strong className="text-slate-900">{resItem.customerName || resItem.name}</strong></p>
                           <p><span className="text-slate-500">Phone:</span> <strong className="text-slate-800">{resItem.phone}</strong></p>
                           <p><span className="text-slate-500">Guests:</span> <span className="font-bold text-orange-600">{resItem.guests}</span></p>
                           <p><span className="text-slate-500">Time:</span> <strong className="text-slate-800">{resItem.time} ({resItem.date})</strong></p>
+                          {(resItem.specialNotes || resItem.notes) && (
+                            <p className="text-xs bg-amber-50 p-2.5 rounded-xl text-amber-900 border border-amber-200 mt-2 font-medium">
+                              <strong>📝 Special Requests / Notes:</strong> {resItem.specialNotes || resItem.notes}
+                            </p>
+                          )}
                         </div>
 
                         {resItem.status === 'pending' && (

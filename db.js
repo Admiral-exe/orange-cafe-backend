@@ -149,8 +149,12 @@ export const saveOrder = async (orderData) => {
     : (orderData.taxes !== undefined ? Number(orderData.taxes) : Math.round(netSub * 0.10 * 100) / 100);
   const gt = orderData.grandTotal !== undefined ? Number(orderData.grandTotal) : netSub + sc;
 
+  // Calculate daily sequential order number starting at #1 for today
+  const orderSeqNum = orders.length + 1;
+  const newOrderId = `#${orderSeqNum}`;
+
   const newOrder = {
-    id: orderData.id || `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
+    id: newOrderId,
     type: orderData.type || 'dine_in',
     tableNumber: orderData.tableNumber || null,
     customerName: orderData.customerName || 'Customer',
@@ -328,16 +332,65 @@ export const updateReservationStatus = async (resId, status) => {
   return null;
 };
 
+const SEED_MENU_CATEGORIES = [
+  { id: 'pizzas', name: '🍕 Pizzas' },
+  { id: 'burgers', name: '🍔 Burgers' },
+  { id: 'sandwiches', name: '🥪 Sandwiches' },
+  { id: 'garlic_breads', name: '🧄 Garlic Breads' },
+  { id: 'fries', name: '🍟 Fries' },
+  { id: 'pastas', name: '🍝 Pastas' },
+  { id: 'frankies', name: '🌯 Frankies' },
+  { id: 'orange_drinks', name: '🍹 Orange Special Drinks' },
+  { id: 'shakes_coffee', name: '🥤 Shakes & Coffee' },
+  { id: 'combos', name: '🎁 Special Value Combos' }
+];
+
+const SEED_MENU_ITEMS = [
+  { id: 'p-1', name: 'Double Cheese Margherita Pizza', category: 'pizzas', price: 139, mediumPrice: 299, hasSizes: true, isBogoEligible: true, description: 'Loaded with Extra Cheese', isVeg: true, image: '/assets/images/pizza.png' },
+  { id: 'p-2', name: 'Fresh Veggie Pizza', category: 'pizzas', price: 139, mediumPrice: 299, hasSizes: true, isBogoEligible: true, description: 'Crunchy Onion, Green Capsicum, Fresh Tomato', isVeg: true, image: '/assets/images/pizza.png' },
+  { id: 'p-3', name: 'Lovers Bite Pizza', category: 'pizzas', price: 139, mediumPrice: 299, hasSizes: true, isBogoEligible: true, description: 'Mushroom, Black Olives, Golden Corn', isVeg: true, image: '/assets/images/pizza.png' },
+  { id: 'p-4', name: 'Paneer Special Pizza', category: 'pizzas', price: 169, mediumPrice: 349, hasSizes: true, isBogoEligible: true, description: 'Paneer Cubes, Capsicum, Red Paprika', isVeg: true, image: '/assets/images/pizza.png' },
+  { id: 'b-1', name: 'Veg Classic Burger', category: 'burgers', price: 69, description: 'Crispy Veg Patty with Fresh Lettuce & Sauce', isVeg: true, image: '/assets/images/burger.png' },
+  { id: 'b-2', name: 'Cheese Burst Burger', category: 'burgers', price: 99, description: 'Loaded with Liquid Cheese Slice & Patty', isVeg: true, image: '/assets/images/burger.png' },
+  { id: 's-1', name: 'Veg Club Sandwich', category: 'sandwiches', price: 89, description: '3-Layer Grilled Sandwich with Cheese', isVeg: true, image: '/assets/images/sandwich.png' },
+  { id: 'gb-1', name: 'Stuffed Garlic Bread', category: 'garlic_breads', price: 109, description: 'Baked Garlic Bread Stuffed with Sweet Corn & Cheese', isVeg: true, image: '/assets/images/garlic_bread.png' },
+  { id: 'f-1', name: 'French Fries (Salted)', category: 'fries', price: 79, description: 'Golden Crispy Potato Fries', isVeg: true, image: '/assets/images/fries.png' },
+  { id: 'f-2', name: 'Peri Peri Masala Fries', category: 'fries', price: 99, description: 'Spicy Peri Peri Seasoned Fries', isVeg: true, image: '/assets/images/fries.png' },
+  { id: 'pa-1', name: 'White Sauce Red Paprika Pasta', category: 'pastas', price: 129, description: 'Creamy White Sauce Penne Pasta with Corn & Paprika', isVeg: true, image: '/assets/images/pasta.png' },
+  { id: 'fr-1', name: 'Paneer Cheese Frankie', category: 'frankies', price: 79, description: 'Spiced Paneer Roll with Tangy Sauce', isVeg: true, image: '/assets/images/frankie.png' },
+  { id: 'd-1', name: 'Orange Special Mojito', category: 'orange_drinks', price: 89, description: 'Refreshing Citrus Mint Cooler', isVeg: true, image: '/assets/images/mojito.png' },
+  { id: 'sh-1', name: 'Chocolate Oreo Shake', category: 'shakes_coffee', price: 99, description: 'Rich Chocolate Shake Blended with Oreo Biscuits', isVeg: true, image: '/assets/images/shake.png' },
+  { id: 'c-1', name: 'Single Saver Combo (Burger + Fries + Drink)', category: 'combos', price: 199, description: '1 Veg Burger + 1 Regular Fries + 1 Cold Drink', isVeg: true, image: '/assets/images/combo.png' }
+];
+
 // Dynamic Menu Store Management
 export const getMenuStore = () => {
-  if (!fs.existsSync(menuStorePath)) {
-    return { categories: [], items: [] };
+  let store = { categories: [], items: [] };
+  if (fs.existsSync(menuStorePath)) {
+    try {
+      store = JSON.parse(fs.readFileSync(menuStorePath, 'utf-8') || '{"categories":[],"items":[]}');
+    } catch (e) {}
   }
-  try {
-    return JSON.parse(fs.readFileSync(menuStorePath, 'utf-8') || '{"categories":[],"items":[]}');
-  } catch (e) {
-    return { categories: [], items: [] };
+
+  if (!store.categories || store.categories.length === 0) {
+    store.categories = SEED_MENU_CATEGORIES;
+  } else {
+    SEED_MENU_CATEGORIES.forEach(sc => {
+      if (!store.categories.some(c => c.id === sc.id)) store.categories.push(sc);
+    });
   }
+
+  if (!store.items || store.items.length === 0) {
+    store.items = SEED_MENU_ITEMS;
+  } else {
+    SEED_MENU_ITEMS.forEach(si => {
+      if (!store.items.some(i => i.id === si.id || i.name.toLowerCase() === si.name.toLowerCase())) {
+        store.items.push(si);
+      }
+    });
+  }
+
+  return store;
 };
 
 export const saveMenuStore = (store) => {

@@ -69,7 +69,15 @@ export function buildOrderPdfBuffer(order) {
 
     // Right column
     doc.fillColor('#555555').font('Helvetica').fontSize(7.5).text('Date', 130, yStart);
-    const dateFormatted = order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : new Date().toLocaleString('en-IN');
+    const dateFormatted = (order.createdAt ? new Date(order.createdAt) : new Date()).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
     doc.fillColor('#000000').font('Helvetica').fontSize(8).text(dateFormatted, 130, yStart + 10);
 
     doc.fillColor('#555555').font('Helvetica').fontSize(7.5).text('Order type', 130, yStart + 36);
