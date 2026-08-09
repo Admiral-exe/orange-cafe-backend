@@ -689,26 +689,34 @@
 
               {/* Status Sync Badges & Staff Phone Gateway */}
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl text-xs font-bold text-slate-700">
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    try {
+                      const res = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ staffPhone: staffGatewayPhone })
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        alert(`✅ Gateway number updated successfully to +91 ${data.staffPhone}!`);
+                      }
+                    } catch(err) {}
+                  }}
+                  className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl text-xs font-bold text-slate-700"
+                >
                   <span>📱 Gateway:</span>
                   <input
                     type="text"
                     value={staffGatewayPhone}
                     onChange={(e) => setStaffGatewayPhone(e.target.value)}
-                    onBlur={async (e) => {
-                      try {
-                        await fetch('/api/settings', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ staffPhone: e.target.value })
-                        });
-                      } catch(err) {}
-                    }}
                     className="w-24 px-1.5 py-0.5 rounded bg-white border border-slate-300 font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
                     placeholder="7623007043"
                     title="Staff SMS/WhatsApp Gateway Phone Number"
                   />
-                </div>
+                  <button type="submit" className="text-[10px] font-extrabold bg-orange-500 text-white px-1.5 py-0.5 rounded hover:bg-orange-600">Save</button>
+                </form>
 
                 <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
                   isConnected ? 'bg-green-50 text-green-700 border-green-300' : 'bg-amber-50 text-amber-700 border-amber-300'

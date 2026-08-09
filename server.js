@@ -87,10 +87,11 @@ app.post('/api/auth/send-otp', (req, res) => {
 
     console.log(`🔒 OTP [${otpCode}] generated for customer +91 ${cleanPhone} via ${method.toUpperCase()} (Gateway: +91 ${staffGatewayPhone})`);
 
-    // Return success response WITHOUT exposing the OTP code to client JSON
+    // Return success response with otpCode for WhatsApp deep link dispatch
     res.json({
       success: true,
       method,
+      otpCode,
       message: `OTP dispatched to +91 ${cleanPhone} via ${method.toUpperCase()}`,
       gatewayPhone: staffGatewayPhone
     });
