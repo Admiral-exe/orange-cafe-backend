@@ -67,11 +67,80 @@ const writeOrdersForDate = (dateStr, orders) => {
   }
 };
 
-// Save a new order to today's file
+// Save a new order or append items to an active running order for today
 export const saveOrder = async (orderData) => {
   const today = new Date().toISOString().split('T')[0];
   const orders = readOrdersForDate(today);
-  
+
+  // Check if an existing open order exists for this table (dine-in) or phone number (online) that is NOT completed
+  let existingIndex = -1;
+  if (orderData.type === 'dine_in' && orderData.tableNumber) {
+    existingIndex = orders.findIndex(o =>
+      o.type === 'dine_in' &&
+      String(o.tableNumber) === String(orderData.tableNumber) &&
+      o.status !== 'completed'
+    );
+  } else if (orderData.phone) {
+    const cleanPhone = String(orderData.phone).replace(/\D/g, '');
+    if (cleanPhone.length >= 10) {
+      existingIndex = orders.findIndex(o =>
+        String(o.phone || '').replace(/\D/g, '') === cleanPhone &&
+        o.status !== 'completed'
+      );
+    }
+  }
+
+  if (existingIndex !== -1) {
+    // Append / merge items into existing active order
+    const existingOrder = orders[existingIndex];
+    const combinedItems = [...(existingOrder.items || [])];
+
+    (orderData.items || []).forEach((newItem) => {
+      const idx = combinedItems.findIndex(i => i.name === newItem.name && Number(i.price) === Number(newItem.price));
+      if (idx !== -1) {
+        combinedItems[idx].quantity += newItem.quantity;
+      } else {
+        combinedItems.push({ ...newItem });
+      }
+    });
+
+    // Re-calculate financial totals for all combined items
+    const sub = combinedItems.reduce((sum, i) => sum + (Number(i.price) * Number(i.quantity)), 0);
+    
+    // Calculate BOGO discount if applicable
+    let bogoDiscount = 0;
+    const bogoPrices = [];
+    combinedItems.forEach(i => {
+      if (i.name.toLowerCase().includes('pizza')) {
+        for (let q = 0; q < i.quantity; q++) bogoPrices.push(Number(i.price));
+      }
+    });
+    bogoPrices.sort((a, b) => b - a);
+    const freeCount = Math.floor(bogoPrices.length / 2);
+    for (let k = 0; k < freeCount; k++) {
+      bogoDiscount += bogoPrices[bogoPrices.length - 1 - k];
+    }
+
+    const netSub = Math.max(0, sub - bogoDiscount);
+    const sc = Math.round((netSub * 0.10) * 100) / 100;
+    const gt = Math.round((netSub + sc) * 100) / 100;
+
+    existingOrder.items = combinedItems;
+    existingOrder.subtotal = sub;
+    existingOrder.bogoDiscount = bogoDiscount;
+    existingOrder.serviceCharge = sc;
+    existingOrder.taxes = sc;
+    existingOrder.grandTotal = gt;
+    existingOrder.status = 'preparing'; // Reset status to kitchen prep for new items
+    existingOrder.updatedAt = new Date().toISOString();
+
+    orders[existingIndex] = existingOrder;
+    writeOrdersForDate(today, orders);
+    console.log(`🔄 Merged additional items into Active Order [${existingOrder.id}]! Total Items: ${combinedItems.length}, Grand Total: ₹${gt}`);
+    return existingOrder;
+  }
+
+  // Create brand new order if no active open order exists
   const sub = Number(orderData.subtotal || 0);
   const bogo = Number(orderData.bogoDiscount || 0);
   const netSub = Math.max(0, sub - bogo);
@@ -87,6 +156,8 @@ export const saveOrder = async (orderData) => {
     customerName: orderData.customerName || 'Customer',
     phone: orderData.phone || '',
     address: orderData.address || '',
+    deliveryAddress: orderData.deliveryAddress || null,
+    mapUrl: orderData.mapUrl || '',
     paymentMethod: orderData.paymentMethod || 'Cash (Paid)',
     items: orderData.items || [],
     subtotal: sub,

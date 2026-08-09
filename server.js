@@ -177,13 +177,14 @@ app.get('/bills/:id', async (req, res) => {
   res.redirect(`/api/orders/${req.params.id}/pdf`);
 });
 
-// POST /api/orders - Create a new order
+// POST /api/orders - Create a new order or append items to active running order
 app.post('/api/orders', async (req, res) => {
   try {
-    const newOrder = await saveOrder(req.body);
-    io.emit('order:new', newOrder);
-    console.log(`🍊 New Order [${newOrder.id}] received! (${newOrder.type.toUpperCase()})`);
-    res.status(201).json({ success: true, order: newOrder });
+    const savedOrder = await saveOrder(req.body);
+    io.emit('order:new', savedOrder);
+    io.emit('order:status_update', savedOrder);
+    console.log(`🍊 Order [${savedOrder.id}] processed! (${savedOrder.type.toUpperCase()} - Total Items: ${savedOrder.items.length})`);
+    res.status(201).json({ success: true, order: savedOrder });
   } catch (error) {
     console.error('Error saving order:', error);
     res.status(500).json({ success: false, error: error.message });
