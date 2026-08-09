@@ -336,16 +336,7 @@
 
       const openWhatsAppBill = (order) => {
         const pdfUrl = `${window.location.protocol}//${window.location.host}/api/orders/${order.id}/pdf`;
-        const text = encodeURIComponent(
-          `🍊 *ORANGE CAFE - OFFICIAL BILL RECEIPT*\n` +
-          `-------------------------------\n` +
-          `Order ID: *${order.id}*\n` +
-          `Customer: ${order.customerName || 'Valued Guest'}\n` +
-          `Total Amount: *₹${order.grandTotal}*\n` +
-          `Status: Paid\n\n` +
-          `📄 *Download your PDF Bill Receipt:* ${pdfUrl}\n\n` +
-          `Thank you for dining with us at Orange Cafe! Visit again soon.`
-        );
+        const text = encodeURIComponent(pdfUrl);
         const cleanPhone = (order.phone || '').replace(/\D/g, '');
         if (cleanPhone.length >= 10) {
           window.open(`https://wa.me/91${cleanPhone}?text=${text}`, '_blank');
