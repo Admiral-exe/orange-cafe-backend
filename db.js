@@ -5,11 +5,23 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure Orders folder exists
-const ordersDir = path.join(__dirname, 'Orders');
-if (!fs.existsSync(ordersDir)) {
-  fs.mkdirSync(ordersDir, { recursive: true });
-}
+// Structured Data Directories
+const dataDir = path.join(__dirname, 'Data');
+const ordersDir = path.join(dataDir, 'Orders');
+const reservationsDir = path.join(dataDir, 'Reservations');
+const menuDir = path.join(dataDir, 'Menu');
+const stockDir = path.join(dataDir, 'Stock');
+
+[dataDir, ordersDir, reservationsDir, menuDir, stockDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
+// File paths
+const menuStorePath = path.join(menuDir, 'menuStore.json');
+const itemHistoryCatalogPath = path.join(menuDir, 'itemHistoryCatalog.json');
+const stockFilePath = path.join(stockDir, 'stock.json');
 
 // Get file path for a specific date (YYYY-MM-DD)
 const getOrdersFilePath = (dateStr) => {
@@ -20,7 +32,18 @@ const getOrdersFilePath = (dateStr) => {
 // Helper to read orders for a date
 const readOrdersForDate = (dateStr) => {
   const filePath = getOrdersFilePath(dateStr);
-  if (!fs.existsSync(filePath)) return [];
+  if (!fs.existsSync(filePath)) {
+    // Migration check from old ServerSide/Orders directory
+    const oldPath = path.join(__dirname, 'Orders', `orders-${dateStr}.json`);
+    if (fs.existsSync(oldPath)) {
+      try {
+        const oldData = fs.readFileSync(oldPath, 'utf-8');
+        fs.writeFileSync(filePath, oldData);
+        return JSON.parse(oldData || '[]');
+      } catch (e) {}
+    }
+    return [];
+  }
   try {
     const data = fs.readFileSync(filePath, 'utf-8');
     return JSON.parse(data || '[]');
@@ -48,235 +71,311 @@ const writeOrdersForDate = (dateStr, orders) => {
 export const saveOrder = async (orderData) => {
   const today = new Date().toISOString().split('T')[0];
   const orders = readOrdersForDate(today);
+  
+  const sub = Number(orderData.subtotal || 0);
+  const bogo = Number(orderData.bogoDiscount || 0);
+  const netSub = Math.max(0, sub - bogo);
+  const sc = orderData.serviceCharge !== undefined 
+    ? Number(orderData.serviceCharge)
+    : (orderData.taxes !== undefined ? Number(orderData.taxes) : Math.round(netSub * 0.10 * 100) / 100);
+  const gt = orderData.grandTotal !== undefined ? Number(orderData.grandTotal) : netSub + sc;
 
   const newOrder = {
-    id: orderData.id || 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+    id: orderData.id || `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
     type: orderData.type || 'dine_in',
-    tableNumber: orderData.tableNumber || '',
-    customerName: orderData.customerName || 'Guest',
+    tableNumber: orderData.tableNumber || null,
+    customerName: orderData.customerName || 'Customer',
     phone: orderData.phone || '',
     address: orderData.address || '',
-    mapUrl: orderData.mapUrl || '',
-    subtotal: orderData.subtotal || 0,
-    bogoDiscount: orderData.bogoDiscount || 0,
-    serviceCharge: orderData.serviceCharge !== undefined 
-      ? orderData.serviceCharge 
-      : (orderData.taxes !== undefined && !orderData.serviceCharge ? orderData.taxes : Math.round(Math.max(0, (orderData.subtotal || 0) - (orderData.bogoDiscount || 0)) * 0.10 * 100) / 100),
-    taxes: orderData.taxes !== undefined ? orderData.taxes : (orderData.serviceCharge || 0),
-    grandTotal: orderData.grandTotal || 0,
-    status: orderData.status || 'pending', // 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
-    date: today,
-    createdAt: orderData.createdAt || new Date().toISOString(),
-    items: orderData.items || []
+    paymentMethod: orderData.paymentMethod || 'Cash (Paid)',
+    items: orderData.items || [],
+    subtotal: sub,
+    bogoDiscount: bogo,
+    serviceCharge: sc,
+    taxes: sc,
+    grandTotal: gt,
+    status: orderData.status || 'pending',
+    createdAt: orderData.createdAt || new Date().toISOString()
   };
 
-  orders.unshift(newOrder); // Newest first
+  orders.unshift(newOrder);
   writeOrdersForDate(today, orders);
   return newOrder;
 };
 
-// Get today's orders
+// Fetch all orders for today
 export const getTodayOrders = async () => {
   const today = new Date().toISOString().split('T')[0];
   return readOrdersForDate(today);
 };
 
-// Get a single order by ID (searches today's orders, root orders.json, and archive files)
+// Fetch order by ID
 export const getOrderById = async (orderId) => {
   const today = new Date().toISOString().split('T')[0];
-  const orders = readOrdersForDate(today);
-  let found = orders.find(o => o.id === orderId);
+  let orders = readOrdersForDate(today);
+  let found = orders.find((o) => o.id === orderId);
   if (found) return found;
 
-  // Search root orders.json
-  const mainPath = path.join(__dirname, 'orders.json');
-  if (fs.existsSync(mainPath)) {
+  const rootPath = path.join(__dirname, 'orders.json');
+  if (fs.existsSync(rootPath)) {
     try {
-      const data = JSON.parse(fs.readFileSync(mainPath, 'utf-8') || '[]');
-      found = data.find(o => o.id === orderId);
+      const rootOrders = JSON.parse(fs.readFileSync(rootPath, 'utf-8') || '[]');
+      found = rootOrders.find((o) => o.id === orderId);
       if (found) return found;
-    } catch(e) {}
+    } catch (e) {}
   }
 
-  // Search across all files in Orders folder if not in today
-  if (fs.existsSync(ordersDir)) {
-    const files = fs.readdirSync(ordersDir).filter(f => f.startsWith('orders-') && f.endsWith('.json'));
-    for (const file of files) {
+  const files = fs.readdirSync(ordersDir);
+  for (const file of files) {
+    if (file.startsWith('orders-') && file.endsWith('.json')) {
       const filePath = path.join(ordersDir, file);
       try {
-        const data = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
-        found = data.find(o => o.id === orderId);
+        const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
+        found = fileOrders.find((o) => o.id === orderId);
         if (found) return found;
-      } catch(e) {}
+      } catch (e) {}
     }
   }
   return null;
 };
 
-// Update order status across files
-export const updateOrderStatus = async (orderId, newStatus) => {
-  const files = fs.readdirSync(ordersDir).filter(f => f.startsWith('orders-') && f.endsWith('.json'));
-  
-  for (const file of files) {
-    const dateStr = file.replace('orders-', '').replace('.json', '');
-    const orders = readOrdersForDate(dateStr);
-    const orderIndex = orders.findIndex(o => o.id === orderId);
+// Update status of an existing order
+export const updateOrderStatus = async (orderId, status) => {
+  const today = new Date().toISOString().split('T')[0];
+  let orders = readOrdersForDate(today);
+  const index = orders.findIndex((o) => o.id === orderId);
 
-    if (orderIndex !== -1) {
-      orders[orderIndex].status = newStatus;
-      orders[orderIndex].updatedAt = new Date().toISOString();
-      writeOrdersForDate(dateStr, orders);
-      return { order: orders[orderIndex] };
-    }
+  if (index !== -1) {
+    orders[index].status = status;
+    orders[index].updatedAt = new Date().toISOString();
+    writeOrdersForDate(today, orders);
+    return orders[index];
   }
 
-  throw new Error(`Order ${orderId} not found`);
+  const files = fs.readdirSync(ordersDir);
+  for (const file of files) {
+    if (file.startsWith('orders-') && file.endsWith('.json')) {
+      const filePath = path.join(ordersDir, file);
+      try {
+        const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
+        const idx = fileOrders.findIndex((o) => o.id === orderId);
+        if (idx !== -1) {
+          fileOrders[idx].status = status;
+          fileOrders[idx].updatedAt = new Date().toISOString();
+          const tempPath = filePath + '.tmp';
+          fs.writeFileSync(tempPath, JSON.stringify(fileOrders, null, 2), 'utf-8');
+          fs.renameSync(tempPath, filePath);
+          return fileOrders[idx];
+        }
+      } catch (e) {}
+    }
+  }
+  return null;
 };
 
-// Get Past Orders History (grouped by date excluding today or including all)
+// Get list of past dates with summaries
 export const getPastOrdersHistory = async () => {
-  const files = fs.readdirSync(ordersDir).filter(f => f.startsWith('orders-') && f.endsWith('.json'));
+  if (!fs.existsSync(ordersDir)) return [];
+  const files = fs.readdirSync(ordersDir);
   const history = [];
 
   for (const file of files) {
-    const dateStr = file.replace('orders-', '').replace('.json', '');
-    const orders = readOrdersForDate(dateStr);
-    
-    if (orders.length > 0) {
-      const totalRevenue = orders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
-      const completedCount = orders.filter(o => o.status === 'completed').length;
-      
-      history.push({
-        date: dateStr,
-        totalOrders: orders.length,
-        completedOrders: completedCount,
-        totalRevenue
-      });
+    if (file.startsWith('orders-') && file.endsWith('.json')) {
+      const dateStr = file.replace('orders-', '').replace('.json', '');
+      const filePath = path.join(ordersDir, file);
+      try {
+        const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
+        const totalRevenue = fileOrders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
+        history.push({
+          date: dateStr,
+          totalOrders: fileOrders.length,
+          totalRevenue: Math.round(totalRevenue * 100) / 100
+        });
+      } catch (e) {}
     }
   }
-
-  // Sort by date descending
-  history.sort((a, b) => new Date(b.date) - new Date(a.date));
-  return history;
+  return history.sort((a, b) => b.date.localeCompare(a.date));
 };
 
-// Get detailed orders for a specific past date
+// Get orders for a specific date
 export const getOrdersByDate = async (dateStr) => {
   return readOrdersForDate(dateStr);
 };
 
-// ==========================================
-// TABLE RESERVATIONS SYSTEM PERSISTENCE
-// ==========================================
+// Table Reservations Helper
+const reservationsFilePath = path.join(reservationsDir, 'reservations.json');
 
-const reservationsDir = path.join(__dirname, 'Reservations');
-if (!fs.existsSync(reservationsDir)) {
-  fs.mkdirSync(reservationsDir, { recursive: true });
-}
-
-const getReservationsFilePath = (dateStr) => {
-  const date = dateStr || new Date().toISOString().split('T')[0];
-  return path.join(reservationsDir, `reservations-${date}.json`);
+export const saveReservation = async (resData) => {
+  let reservations = [];
+  if (fs.existsSync(reservationsFilePath)) {
+    try {
+      reservations = JSON.parse(fs.readFileSync(reservationsFilePath, 'utf-8') || '[]');
+    } catch (e) {}
+  }
+  const newRes = {
+    id: `RES-${Math.floor(1000 + Math.random() * 9000)}`,
+    ...resData,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+  reservations.unshift(newRes);
+  fs.writeFileSync(reservationsFilePath, JSON.stringify(reservations, null, 2));
+  return newRes;
 };
 
-const readReservationsForDate = (dateStr) => {
-  const filePath = getReservationsFilePath(dateStr);
-  if (!fs.existsSync(filePath)) return [];
+export const getTodayReservations = async () => {
+  if (!fs.existsSync(reservationsFilePath)) return [];
   try {
-    const data = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(data || '[]');
-  } catch (error) {
-    console.error(`Error reading ${filePath}:`, error);
+    const reservations = JSON.parse(fs.readFileSync(reservationsFilePath, 'utf-8') || '[]');
+    const todayStr = new Date().toISOString().split('T')[0];
+    return reservations.filter(r => r.date === todayStr);
+  } catch (e) {
     return [];
   }
 };
 
-const writeReservationsForDate = (dateStr, reservations) => {
-  const filePath = getReservationsFilePath(dateStr);
-  const tempPath = filePath + '.tmp';
+export const getAllReservations = async () => {
+  if (!fs.existsSync(reservationsFilePath)) return [];
   try {
-    fs.writeFileSync(tempPath, JSON.stringify(reservations, null, 2), 'utf-8');
-    fs.renameSync(tempPath, filePath);
-    return true;
-  } catch (error) {
-    console.error(`Error writing ${filePath}:`, error);
-    return false;
+    return JSON.parse(fs.readFileSync(reservationsFilePath, 'utf-8') || '[]');
+  } catch (e) {
+    return [];
   }
 };
 
-export const saveReservation = async (data) => {
-  const today = new Date().toISOString().split('T')[0];
-  const dateStr = data.date || today;
-  const reservations = readReservationsForDate(dateStr);
+export const updateReservationStatus = async (resId, status) => {
+  if (!fs.existsSync(reservationsFilePath)) return null;
+  try {
+    const reservations = JSON.parse(fs.readFileSync(reservationsFilePath, 'utf-8') || '[]');
+    const idx = reservations.findIndex(r => r.id === resId);
+    if (idx !== -1) {
+      reservations[idx].status = status;
+      fs.writeFileSync(reservationsFilePath, JSON.stringify(reservations, null, 2));
+      return reservations[idx];
+    }
+  } catch (e) {}
+  return null;
+};
 
-  const newReservation = {
-    id: data.id || 'RES-' + Math.floor(100000 + Math.random() * 900000),
-    customerName: data.customerName || data.name || 'Guest',
-    phone: data.phone || '',
-    date: dateStr,
-    time: data.time || '18:00',
-    guests: data.guests || '2 Guests',
-    specialNotes: data.specialNotes || '',
-    status: data.status || 'pending', // 'pending' | 'confirmed' | 'seated' | 'cancelled'
-    createdAt: data.createdAt || new Date().toISOString()
+// Dynamic Menu Store Management
+export const getMenuStore = () => {
+  if (!fs.existsSync(menuStorePath)) {
+    return { categories: [], items: [] };
+  }
+  try {
+    return JSON.parse(fs.readFileSync(menuStorePath, 'utf-8') || '{"categories":[],"items":[]}');
+  } catch (e) {
+    return { categories: [], items: [] };
+  }
+};
+
+export const saveMenuStore = (store) => {
+  const tempPath = menuStorePath + '.tmp';
+  fs.writeFileSync(tempPath, JSON.stringify(store, null, 2));
+  fs.renameSync(tempPath, menuStorePath);
+  return store;
+};
+
+export const getItemHistoryCatalog = () => {
+  if (!fs.existsSync(itemHistoryCatalogPath)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(itemHistoryCatalogPath, 'utf-8') || '[]');
+  } catch (e) {
+    return [];
+  }
+};
+
+export const addMenuItem = (itemData) => {
+  const store = getMenuStore();
+  const newId = itemData.id || `item-${Date.now()}`;
+  const newItem = {
+    id: newId,
+    name: itemData.name,
+    category: itemData.category || 'pizzas',
+    price: Number(itemData.price || 0),
+    mediumPrice: itemData.mediumPrice ? Number(itemData.mediumPrice) : null,
+    hasSizes: Boolean(itemData.mediumPrice),
+    sizes: itemData.mediumPrice ? [
+      { size: 'Regular', price: Number(itemData.price || 0) },
+      { size: 'Medium', price: Number(itemData.mediumPrice) }
+    ] : null,
+    isBogoEligible: Boolean(itemData.isBogoEligible),
+    description: itemData.description || '',
+    isVeg: itemData.isVeg !== undefined ? itemData.isVeg : true,
+    rating: 4.8,
+    prepTime: itemData.prepTime || '10 min',
+    image: itemData.image || '/assets/images/pizza.png',
+    inStock: true
   };
 
-  reservations.unshift(newReservation);
-  writeReservationsForDate(dateStr, reservations);
-  return newReservation;
-};
+  store.items.unshift(newItem);
+  saveMenuStore(store);
 
-export const getTodayReservations = async () => {
-  const today = new Date().toISOString().split('T')[0];
-  return readReservationsForDate(today);
-};
-
-export const getAllReservations = async () => {
-  const files = fs.existsSync(reservationsDir) ? fs.readdirSync(reservationsDir).filter(f => f.startsWith('reservations-') && f.endsWith('.json')) : [];
-  let all = [];
-  for (const file of files) {
-    const dateStr = file.replace('reservations-', '').replace('.json', '');
-    const list = readReservationsForDate(dateStr);
-    all = all.concat(list);
+  // Add to item history catalog as seed
+  let catalog = getItemHistoryCatalog();
+  if (!catalog.some(c => c.name.toLowerCase() === newItem.name.toLowerCase())) {
+    catalog.unshift(newItem);
+    fs.writeFileSync(itemHistoryCatalogPath, JSON.stringify(catalog, null, 2));
   }
-  all.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  return all;
+
+  return store;
 };
 
-export const updateReservationStatus = async (id, newStatus) => {
-  const files = fs.existsSync(reservationsDir) ? fs.readdirSync(reservationsDir).filter(f => f.startsWith('reservations-') && f.endsWith('.json')) : [];
-  for (const file of files) {
-    const dateStr = file.replace('reservations-', '').replace('.json', '');
-    const reservations = readReservationsForDate(dateStr);
-    const index = reservations.findIndex(r => r.id === id);
-    if (index !== -1) {
-      reservations[index].status = newStatus;
-      reservations[index].updatedAt = new Date().toISOString();
-      writeReservationsForDate(dateStr, reservations);
-      return { reservation: reservations[index] };
+export const updateMenuItem = (itemId, updates) => {
+  const store = getMenuStore();
+  const idx = store.items.findIndex(i => i.id === itemId);
+  if (idx !== -1) {
+    store.items[idx] = { ...store.items[idx], ...updates };
+    if (updates.price || updates.mediumPrice) {
+      if (store.items[idx].mediumPrice) {
+        store.items[idx].sizes = [
+          { size: 'Regular', price: Number(store.items[idx].price) },
+          { size: 'Medium', price: Number(store.items[idx].mediumPrice) }
+        ];
+      }
     }
+    saveMenuStore(store);
   }
-  throw new Error(`Reservation ${id} not found`);
+  return store;
 };
 
-// ==========================================
-// MENU ITEM STOCK MANAGEMENT HELPERS
-// ==========================================
-const stockFilePath = path.join(__dirname, 'stock.json');
+export const deleteMenuItem = (itemId) => {
+  const store = getMenuStore();
+  store.items = store.items.filter(i => i.id !== itemId);
+  saveMenuStore(store);
+  return store;
+};
 
-export const getMenuStock = () => {
-  if (!fs.existsSync(stockFilePath)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(stockFilePath, 'utf-8') || '{}');
-  } catch (e) {
-    return {};
+export const addMenuCategory = (categoryData) => {
+  const store = getMenuStore();
+  const newCat = {
+    id: categoryData.id || `cat-${Date.now()}`,
+    name: categoryData.name
+  };
+  if (!store.categories.some(c => c.id === newCat.id)) {
+    store.categories.push(newCat);
+    saveMenuStore(store);
   }
+  return store;
+};
+
+// Stock Management Helper
+export const getMenuStock = () => {
+  if (fs.existsSync(stockFilePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(stockFilePath, 'utf-8') || '{}');
+    } catch (e) {}
+  }
+  const store = getMenuStore();
+  const map = {};
+  store.items.forEach(i => { map[i.id] = i.inStock !== false; });
+  return map;
 };
 
 export const updateMenuStock = (itemId, inStock) => {
-  const stock = getMenuStock();
-  stock[itemId] = inStock;
-  fs.writeFileSync(stockFilePath, JSON.stringify(stock, null, 2), 'utf-8');
-  return stock;
+  const map = getMenuStock();
+  map[itemId] = inStock;
+  fs.writeFileSync(stockFilePath, JSON.stringify(map, null, 2));
+  updateMenuItem(itemId, { inStock });
+  return map;
 };
-

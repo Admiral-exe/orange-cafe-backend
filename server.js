@@ -14,24 +14,39 @@ import {
   getAllReservations,
   updateReservationStatus,
   getMenuStock,
-  updateMenuStock
+  updateMenuStock,
+  getMenuStore,
+  addMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
+  addMenuCategory,
+  getItemHistoryCatalog
 } from './db.js';
 import { buildOrderPdfBuffer } from './billPdfGenerator.js';
 
 const app = express();
 const server = http.createServer(app);
+
+// Open CORS for Vercel, Mobile, and Local Access
+const corsOptions = {
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+};
+
+app.use(cors(corsOptions));
+app.use(express.json());
+app.use(express.static('public'));
+
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE']
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
   }
 });
 
 const PORT = process.env.PORT || 5000;
-
-app.use(cors());
-app.use(express.json());
-app.use(express.static('public'));
 
 // Server Health Check
 app.get('/api/health', (req, res) => {
@@ -49,163 +64,171 @@ app.get('/api/orders', async (req, res) => {
   }
 });
 
-// GET /api/orders/history - Fetch past orders daily summary list
-app.get('/api/orders/history', async (req, res) => {
+// GET /api/orders/:id/pdf - Server-Side High DPI PDF Stream
+app.get('/api/orders/:id/pdf', async (req, res) => {
   try {
-    const history = await getPastOrdersHistory();
-    res.json({ success: true, history });
-  } catch (error) {
-    console.error('Error fetching past orders history:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET /api/orders/history/:date - Fetch detailed orders for a specific date
-app.get('/api/orders/history/:date', async (req, res) => {
-  try {
-    const { date } = req.params;
-    const orders = await getOrdersByDate(date);
-    res.json({ success: true, date, orders });
-  } catch (error) {
-    console.error('Error fetching orders for date:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET /api/orders/:id - Fetch single order live status
-app.get('/api/orders/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const order = await getOrderById(id);
-    if (!order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-    res.json({ success: true, order });
-  } catch (error) {
-    console.error('Error fetching single order:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET /api/orders/:id/pdf - Stream PDF Bill
-app.get(['/api/orders/:id/pdf', '/bills/:id'], async (req, res) => {
-  try {
-    let { id } = req.params;
-    if (id.endsWith('.pdf')) id = id.replace('.pdf', '');
-    const order = await getOrderById(id);
+    const order = await getOrderById(req.params.id);
     if (!order) {
       return res.status(404).send('Order not found');
     }
-
     const pdfBuffer = await buildOrderPdfBuffer(order);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename=OrangeCafe_Bill_${order.id}.pdf`);
+    res.setHeader('Content-Disposition', `inline; filename="Bill-${order.id}.pdf"`);
     res.send(pdfBuffer);
   } catch (error) {
-    console.error('Error generating PDF bill:', error);
+    console.error('PDF Generation Error:', error);
     res.status(500).send('Error generating PDF bill: ' + error.message);
   }
 });
 
-// POST /api/orders - Create new order (Dine-In or Online)
+app.get('/bills/:id', async (req, res) => {
+  res.redirect(`/api/orders/${req.params.id}/pdf`);
+});
+
+// POST /api/orders - Create a new order
 app.post('/api/orders', async (req, res) => {
   try {
-    const orderPayload = req.body;
-    
-    if (!orderPayload.id) {
-      orderPayload.id = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
-    }
-    orderPayload.createdAt = new Date().toISOString();
-    orderPayload.status = orderPayload.status || 'pending';
-
-    const saved = await saveOrder(orderPayload);
-
-    // Broadcast Socket.io event to all staff screens
-    io.emit('order:new', saved);
-    console.log(`🍊 New Order [${saved.id}] received! (${saved.type.toUpperCase()})`);
-
-    res.status(201).json({ success: true, order: saved });
+    const newOrder = await saveOrder(req.body);
+    io.emit('order:new', newOrder);
+    console.log(`🍊 New Order [${newOrder.id}] received! (${newOrder.type.toUpperCase()})`);
+    res.status(201).json({ success: true, order: newOrder });
   } catch (error) {
     console.error('Error saving order:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// PATCH /api/orders/:id/status - Staff status transition
+// PATCH /api/orders/:id/status - Update order status
 app.patch('/api/orders/:id/status', async (req, res) => {
   try {
-    const { id } = req.params;
     const { status } = req.body;
-
-    if (!['pending', 'preparing', 'ready', 'completed', 'cancelled'].includes(status)) {
-      return res.status(400).json({ success: false, error: 'Invalid status' });
+    if (!status) {
+      return res.status(400).json({ success: false, error: 'Status is required' });
     }
-
-    const { order } = await updateOrderStatus(id, status);
-    
-    // Broadcast status change to staff and customer
-    io.emit('order:status_update', { id, status, order });
-    console.log(`🔄 Order [${id}] status updated to: ${status.toUpperCase()}`);
-
-    res.json({ success: true, id, status, order });
+    const updatedOrder = await updateOrderStatus(req.params.id, status);
+    if (!updatedOrder) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    io.emit('order:status_update', updatedOrder);
+    console.log(`🔄 Order [${updatedOrder.id}] status updated to: ${status.toUpperCase()}`);
+    res.json({ success: true, order: updatedOrder });
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// ==========================================
-// TABLE RESERVATIONS API ENDPOINTS
-// ==========================================
+// GET /api/orders/history - Get past order dates summary
+app.get('/api/orders/history', async (req, res) => {
+  try {
+    const history = await getPastOrdersHistory();
+    res.json({ success: true, history });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
-// GET /api/reservations - Fetch table reservations
+// GET /api/orders/date/:dateStr - Get detailed orders for a specific past date
+app.get('/api/orders/date/:dateStr', async (req, res) => {
+  try {
+    const orders = await getOrdersByDate(req.params.dateStr);
+    res.json({ success: true, orders });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Table Reservations Endpoints
 app.get('/api/reservations', async (req, res) => {
   try {
-    const reservations = await getAllReservations();
+    const reservations = await getTodayReservations();
     res.json({ success: true, reservations });
   } catch (error) {
-    console.error('Error fetching reservations:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// POST /api/reservations - Create table reservation
 app.post('/api/reservations', async (req, res) => {
   try {
-    const reservationPayload = req.body;
-    const saved = await saveReservation(reservationPayload);
-
-    // Broadcast socket event to staff
-    io.emit('reservation:new', saved);
-    console.log(`📅 New Table Reservation [${saved.id}] received from ${saved.customerName}!`);
-
-    res.status(201).json({ success: true, reservation: saved });
+    const newRes = await saveReservation(req.body);
+    io.emit('reservation:new', newRes);
+    res.status(201).json({ success: true, reservation: newRes });
   } catch (error) {
-    console.error('Error saving reservation:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// PATCH /api/reservations/:id/status - Update reservation status
 app.patch('/api/reservations/:id/status', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    const { reservation } = await updateReservationStatus(id, status);
-    io.emit('reservation:status_update', { id, status, reservation });
-    console.log(`🔄 Reservation [${id}] status updated to: ${status}`);
-
-    res.json({ success: true, id, status, reservation });
+    const updated = await updateReservationStatus(req.params.id, req.body.status);
+    if (!updated) return res.status(404).json({ success: false, error: 'Reservation not found' });
+    io.emit('reservation:status_update', updated);
+    res.json({ success: true, reservation: updated });
   } catch (error) {
-    console.error('Error updating reservation status:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// ==========================================
-// MENU STOCK MANAGEMENT ENDPOINTS
-// ==========================================
+// Real-Time Dynamic Menu Management Endpoints
+app.get('/api/menu', (req, res) => {
+  try {
+    const store = getMenuStore();
+    res.json({ success: true, ...store });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/menu/item', (req, res) => {
+  try {
+    const store = addMenuItem(req.body);
+    io.emit('menu:update', store);
+    res.status(201).json({ success: true, ...store });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.put('/api/menu/item/:id', (req, res) => {
+  try {
+    const store = updateMenuItem(req.params.id, req.body);
+    io.emit('menu:update', store);
+    res.json({ success: true, ...store });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/menu/item/:id', (req, res) => {
+  try {
+    const store = deleteMenuItem(req.params.id);
+    io.emit('menu:update', store);
+    res.json({ success: true, ...store });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/menu/category', (req, res) => {
+  try {
+    const store = addMenuCategory(req.body);
+    io.emit('menu:update', store);
+    res.status(201).json({ success: true, ...store });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/menu/suggestions', (req, res) => {
+  try {
+    const catalog = getItemHistoryCatalog();
+    res.json({ success: true, suggestions: catalog });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Menu Item Stock Endpoints
 app.get('/api/stock', (req, res) => {
   try {
     const stock = getMenuStock();
@@ -227,7 +250,6 @@ app.post('/api/stock', (req, res) => {
   }
 });
 
-
 // Socket.io connection logic
 io.on('connection', (socket) => {
   console.log(`🔌 Client connected: ${socket.id}`);
@@ -237,7 +259,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start Server on 0.0.0.0 (Exposes server to mobile devices on local network)
+// Start Server on 0.0.0.0 (Exposes server to mobile devices on local network & cloud)
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ==================================================
