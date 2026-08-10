@@ -284,7 +284,8 @@
 
       const updateStatus = async (order, nextStatus) => {
         try {
-          const res = await fetch(`/api/orders/${order.id}/status`, {
+          const encodedId = encodeURIComponent(order.id);
+          const res = await fetch(`/api/orders/${encodedId}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: nextStatus })
@@ -292,8 +293,14 @@
           const data = await res.json();
           if (data.success) {
             setOrders((prev) => prev.map((o) => (o.id === order.id ? data.order : o)));
+          } else {
+            console.error('Failed to update order status:', data.error);
+            alert(`Could not update order status: ${data.error || 'Unknown error'}`);
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error('Error updating order status:', e);
+          alert(`Network error updating order status: ${e.message}`);
+        }
       };
 
       const updateReservationStatus = async (resItem, nextStatus) => {
@@ -332,11 +339,11 @@
       };
 
       const viewBillInNewTab = (orderId) => {
-        window.open(`/api/orders/${orderId}/pdf`, '_blank');
+        window.open(`/api/orders/${encodeURIComponent(orderId)}/pdf`, '_blank');
       };
 
       const openWhatsAppBill = (order) => {
-        const pdfUrl = `${window.location.protocol}//${window.location.host}/api/orders/${order.id}/pdf`;
+        const pdfUrl = `${window.location.protocol}//${window.location.host}/api/orders/${encodeURIComponent(order.id)}/pdf`;
         const text = encodeURIComponent(pdfUrl);
         const cleanPhone = (order.phone || '').replace(/\D/g, '');
         if (cleanPhone.length >= 10) {
@@ -922,7 +929,7 @@
                         <div key={order.id} className="bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-3">
                           <div className="flex justify-between items-center pb-2 border-b border-slate-200">
                             <div>
-                              <span className="text-xs font-mono font-bold text-slate-500">#{order.id}</span>
+                              <span className="text-xs font-mono font-bold text-slate-500">{String(order.id).startsWith('#') ? order.id : '#' + order.id}</span>
                               <span className="text-[10px] text-slate-400 block">{new Date(order.createdAt).toLocaleTimeString()}</span>
                             </div>
                             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
@@ -1349,7 +1356,7 @@
                           {/* Header */}
                           <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                             <div>
-                              <span className="text-xs font-mono font-bold text-slate-500">#{order.id}</span>
+                              <span className="text-xs font-mono font-bold text-slate-500">{String(order.id).startsWith('#') ? order.id : '#' + order.id}</span>
                               <span className="text-[10px] text-slate-400 block">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
 

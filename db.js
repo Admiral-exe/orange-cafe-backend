@@ -149,9 +149,9 @@ export const saveOrder = async (orderData) => {
     : (orderData.taxes !== undefined ? Number(orderData.taxes) : Math.round(netSub * 0.10 * 100) / 100);
   const gt = orderData.grandTotal !== undefined ? Number(orderData.grandTotal) : netSub + sc;
 
-  // Calculate daily sequential order number starting at #1 for today
+  // Calculate daily sequential order number starting at #1 for today if ID not provided
   const orderSeqNum = orders.length + 1;
-  const newOrderId = `#${orderSeqNum}`;
+  const newOrderId = orderData.id || `#${orderSeqNum}`;
 
   const newOrder = {
     id: newOrderId,
@@ -184,31 +184,44 @@ export const getTodayOrders = async () => {
   return readOrdersForDate(today);
 };
 
+// Helper for matching order IDs flexibly across formats (#1, 1, %231, ORD-1)
+const isOrderIdMatch = (order, targetId) => {
+  if (!order || !order.id || !targetId) return false;
+  const rawTarget = String(targetId).trim().toLowerCase();
+  const cleanTarget = decodeURIComponent(rawTarget).replace(/^#/, '');
+  const rawCurrent = String(order.id).trim().toLowerCase();
+  const cleanCurrent = rawCurrent.replace(/^#/, '');
+  return rawCurrent === rawTarget || cleanCurrent === cleanTarget || rawCurrent === decodeURIComponent(rawTarget);
+};
+
 // Fetch order by ID
 export const getOrderById = async (orderId) => {
+  if (!orderId) return null;
   const today = new Date().toISOString().split('T')[0];
   let orders = readOrdersForDate(today);
-  let found = orders.find((o) => o.id === orderId);
+  let found = orders.find(o => isOrderIdMatch(o, orderId));
   if (found) return found;
 
   const rootPath = path.join(__dirname, 'orders.json');
   if (fs.existsSync(rootPath)) {
     try {
       const rootOrders = JSON.parse(fs.readFileSync(rootPath, 'utf-8') || '[]');
-      found = rootOrders.find((o) => o.id === orderId);
+      found = rootOrders.find(o => isOrderIdMatch(o, orderId));
       if (found) return found;
     } catch (e) {}
   }
 
-  const files = fs.readdirSync(ordersDir);
-  for (const file of files) {
-    if (file.startsWith('orders-') && file.endsWith('.json')) {
-      const filePath = path.join(ordersDir, file);
-      try {
-        const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
-        found = fileOrders.find((o) => o.id === orderId);
-        if (found) return found;
-      } catch (e) {}
+  if (fs.existsSync(ordersDir)) {
+    const files = fs.readdirSync(ordersDir);
+    for (const file of files) {
+      if (file.startsWith('orders-') && file.endsWith('.json')) {
+        const filePath = path.join(ordersDir, file);
+        try {
+          const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
+          found = fileOrders.find(o => isOrderIdMatch(o, orderId));
+          if (found) return found;
+        } catch (e) {}
+      }
     }
   }
   return null;
@@ -216,9 +229,10 @@ export const getOrderById = async (orderId) => {
 
 // Update status of an existing order
 export const updateOrderStatus = async (orderId, status) => {
+  if (!orderId) return null;
   const today = new Date().toISOString().split('T')[0];
   let orders = readOrdersForDate(today);
-  const index = orders.findIndex((o) => o.id === orderId);
+  const index = orders.findIndex(o => isOrderIdMatch(o, orderId));
 
   if (index !== -1) {
     orders[index].status = status;
@@ -227,22 +241,24 @@ export const updateOrderStatus = async (orderId, status) => {
     return orders[index];
   }
 
-  const files = fs.readdirSync(ordersDir);
-  for (const file of files) {
-    if (file.startsWith('orders-') && file.endsWith('.json')) {
-      const filePath = path.join(ordersDir, file);
-      try {
-        const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
-        const idx = fileOrders.findIndex((o) => o.id === orderId);
-        if (idx !== -1) {
-          fileOrders[idx].status = status;
-          fileOrders[idx].updatedAt = new Date().toISOString();
-          const tempPath = filePath + '.tmp';
-          fs.writeFileSync(tempPath, JSON.stringify(fileOrders, null, 2), 'utf-8');
-          fs.renameSync(tempPath, filePath);
-          return fileOrders[idx];
-        }
-      } catch (e) {}
+  if (fs.existsSync(ordersDir)) {
+    const files = fs.readdirSync(ordersDir);
+    for (const file of files) {
+      if (file.startsWith('orders-') && file.endsWith('.json')) {
+        const filePath = path.join(ordersDir, file);
+        try {
+          const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
+          const idx = fileOrders.findIndex(o => isOrderIdMatch(o, orderId));
+          if (idx !== -1) {
+            fileOrders[idx].status = status;
+            fileOrders[idx].updatedAt = new Date().toISOString();
+            const tempPath = filePath + '.tmp';
+            fs.writeFileSync(tempPath, JSON.stringify(fileOrders, null, 2), 'utf-8');
+            fs.renameSync(tempPath, filePath);
+            return fileOrders[idx];
+          }
+        } catch (e) {}
+      }
     }
   }
   return null;
