@@ -348,7 +348,19 @@ export const updateReservationStatus = async (resId, status) => {
   return null;
 };
 
-import { MENU_CATEGORIES, MENU_ITEMS } from '../OrangeCafe/src/data/menuData.js';
+// Default fallback categories if menuStore.json does not exist
+const DEFAULT_MENU_CATEGORIES = [
+  { id: 'pizzas', name: '🍕 Pizzas (BOGO Offer)' },
+  { id: 'burgers', name: '🍔 Burgers' },
+  { id: 'sandwiches', name: '🥪 Sandwiches' },
+  { id: 'garlic_breads', name: '🧄 Garlic Breads' },
+  { id: 'fries', name: '🍟 Fries' },
+  { id: 'pastas', name: '🍝 Pastas' },
+  { id: 'frankies', name: '🌯 Frankies' },
+  { id: 'orange_drinks', name: '🍹 Orange Special Drinks' },
+  { id: 'shakes_coffee', name: '🥤 Shakes & Coffee' },
+  { id: 'combos', name: '🎁 Special Value Combos' }
+];
 
 // Dynamic Menu Store Management
 export const getMenuStore = () => {
@@ -359,28 +371,16 @@ export const getMenuStore = () => {
     } catch (e) {}
   }
 
-  // Merge default MENU_CATEGORIES from website menuData.js
-  const combinedCategories = [...MENU_CATEGORIES];
+  const combinedCategories = [...DEFAULT_MENU_CATEGORIES];
   (store.categories || []).forEach(c => {
     if (!combinedCategories.some(existing => existing.id === c.id)) {
       combinedCategories.push(c);
     }
   });
 
-  // Merge default MENU_ITEMS from website menuData.js
-  const combinedItems = MENU_ITEMS.map(item => ({ ...item, inStock: true }));
-  (store.items || []).forEach(cItem => {
-    const idx = combinedItems.findIndex(i => i.id === cItem.id || i.name.toLowerCase() === cItem.name.toLowerCase());
-    if (idx !== -1) {
-      combinedItems[idx] = { ...combinedItems[idx], ...cItem };
-    } else {
-      combinedItems.push(cItem);
-    }
-  });
-
   return {
     categories: combinedCategories,
-    items: combinedItems
+    items: store.items || []
   };
 };
 
