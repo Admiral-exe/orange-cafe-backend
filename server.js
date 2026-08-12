@@ -2,6 +2,8 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
 import {
   saveOrder,
   getTodayOrders,
@@ -20,9 +22,34 @@ import {
   updateMenuItem,
   deleteMenuItem,
   addMenuCategory,
-  getItemHistoryCatalog
+  getItemHistoryCatalog,
+  getMaintenanceSettings,
+  updateMaintenanceSettings,
+  verifyDineInSecurity
 } from './db.js';
+import { createRazorpayOrder, processSuccessfulPaymentRecord } from './paymentService.js';
+
+
 import { buildOrderPdfBuffer } from './billPdfGenerator.js';
+
+// Load .env variables if present
+const envPath = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(envPath)) {
+  try {
+    const envConfig = fs.readFileSync(envPath, 'utf-8');
+    envConfig.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const [key, ...val] = trimmed.split('=');
+        if (key && val) {
+          process.env[key.trim()] = val.join('=').trim();
+        }
+      }
+    });
+  } catch (e) {
+    console.error('Error loading .env file:', e);
+  }
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -48,14 +75,138 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 5000;
 
+// Helper to check if owner maintenance bypass cookie/header is present
+const checkIsOwnerBypassed = (req) => {
+  const cookieHeader = req.headers.cookie || '';
+  if (cookieHeader.includes('admin_maintenance_bypass=true')) {
+    return true;
+  }
+  const authHeader = req.headers['x-bypass-token'];
+  const bypassPin = process.env.BYPASS_PIN || 'orange2026';
+  if (authHeader === 'true' || authHeader === bypassPin) {
+    return true;
+  }
+  return false;
+};
+
+// Helper to set HttpOnly bypass cookie
+const setBypassCookie = (res) => {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+  const cookieOptions = [
+    'admin_maintenance_bypass=true',
+    'Path=/',
+    'HttpOnly',
+    'Max-Age=2592000', // 30 days
+    isProduction ? 'SameSite=None; Secure' : 'SameSite=Lax'
+  ].join('; ');
+  res.setHeader('Set-Cookie', cookieOptions);
+};
+
+// Helper to clear bypass cookie
+const clearBypassCookie = (res) => {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+  const cookieOptions = [
+    'admin_maintenance_bypass=;',
+    'Path=/',
+    'HttpOnly',
+    'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+    isProduction ? 'SameSite=None; Secure' : 'SameSite=Lax'
+  ].join('; ');
+  res.setHeader('Set-Cookie', cookieOptions);
+};
+
+// Helper to verify developer secret key header for isolated test orders/reservations
+const isDevTestAuthorized = (req) => {
+  const devHeader = req.headers['x-dev-secret-key'];
+  const devSecret = process.env.DEV_TEST_SECRET || 'orange_dev_secret_key_2026';
+  return Boolean(devHeader && devHeader.trim() === devSecret.trim());
+};
+
+
 // In-Memory OTP Storage & Staff Settings
 let staffGatewayPhone = '7623007043';
 const activeOtpMap = new Map(); // phone -> { code, expiresAt }
 
-// Server Health Check
+// Server Health Check - Returns 503 HTTP Status when maintenance is active and visitor is not owner
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
+  const settings = getMaintenanceSettings();
+  const isBypassed = checkIsOwnerBypassed(req);
+
+  if (settings.maintenance && !isBypassed) {
+    return res.status(503).json({
+      status: 'maintenance',
+      maintenance: true,
+      isOwnerBypassed: false,
+      message: settings.message || 'This site is under maintenance, please come back later.'
+    });
+  }
+
+  res.json({
+    status: 'ok',
+    maintenance: settings.maintenance,
+    isOwnerBypassed: isBypassed,
+    time: new Date().toISOString()
+  });
 });
+
+// Admin Verify Bypass PIN Endpoint
+app.post('/api/admin/verify-bypass', (req, res) => {
+  const { pin } = req.body;
+  const bypassPin = process.env.BYPASS_PIN || 'orange2026';
+
+  if (!pin || pin.toString().trim() !== bypassPin.trim()) {
+    return res.status(401).json({ success: false, message: 'Invalid secret PIN' });
+  }
+
+  setBypassCookie(res);
+  res.json({ success: true, message: 'Owner bypass access granted' });
+});
+
+// Admin Clear Bypass Cookie Endpoint ("Re-Lock Site")
+app.post('/api/admin/clear-bypass', (req, res) => {
+  clearBypassCookie(res);
+  res.json({ success: true, message: 'Owner bypass cookie cleared' });
+});
+
+// GET /api/settings/maintenance - Read maintenance mode state
+app.get('/api/settings/maintenance', (req, res) => {
+  const settings = getMaintenanceSettings();
+  const isBypassed = checkIsOwnerBypassed(req);
+
+  if (settings.maintenance && !isBypassed) {
+    return res.status(503).json({
+      maintenance: true,
+      isOwnerBypassed: false,
+      message: settings.message || 'This site is under maintenance, please come back later.'
+    });
+  }
+
+  res.json({
+    maintenance: settings.maintenance,
+    isOwnerBypassed: isBypassed,
+    message: settings.message
+  });
+});
+
+// POST /api/settings/maintenance - Toggle maintenance mode on/off
+app.post('/api/settings/maintenance', (req, res) => {
+  const { maintenance, pin, message } = req.body;
+  const isBypassed = checkIsOwnerBypassed(req);
+  const bypassPin = process.env.BYPASS_PIN || 'orange2026';
+
+  if (!isBypassed && pin !== bypassPin) {
+    return res.status(401).json({ success: false, message: 'Unauthorized: Invalid PIN' });
+  }
+
+  const updated = updateMaintenanceSettings({
+    ...(typeof maintenance === 'boolean' ? { maintenance } : {}),
+    ...(message ? { message } : {})
+  });
+
+  io.emit('maintenance-status-changed', updated);
+  res.json({ success: true, settings: updated });
+});
+
 
 // GET /api/settings - Fetch Staff Gateway Phone Number
 app.get('/api/settings', (req, res) => {
@@ -135,8 +286,9 @@ app.post('/api/auth/verify-otp', (req, res) => {
 // GET /api/orders - Fetch today's orders
 app.get('/api/orders', async (req, res) => {
   try {
-    const orders = await getTodayOrders();
-    res.json({ success: true, orders });
+    const isTest = isDevTestAuthorized(req);
+    const orders = await getTodayOrders(isTest);
+    res.json({ success: true, orders, isTest });
   } catch (error) {
     console.error('Error fetching today orders:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -177,39 +329,125 @@ app.get('/bills/:id', async (req, res) => {
   res.redirect(`/api/orders/${req.params.id}/pdf`);
 });
 
+// POST /api/payments/create-razorpay-order - Create Razorpay payment order
+app.post('/api/payments/create-razorpay-order', async (req, res) => {
+  try {
+    const { amount, receiptId } = req.body;
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid order amount' });
+    }
+    const orderObj = await createRazorpayOrder(amount, receiptId);
+    res.json({ success: true, ...orderObj });
+  } catch (error) {
+    console.error('Error creating Razorpay order:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/payments/verify-razorpay-payment - Verify SHA256 HMAC Signature & Amount
+app.post('/api/payments/verify-razorpay-payment', async (req, res) => {
+  try {
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, expectedGrandTotal } = req.body;
+    if (!razorpayOrderId || !razorpayPaymentId) {
+      return res.status(400).json({ success: false, error: 'Missing Razorpay payment parameters' });
+    }
+
+    const verificationResult = await processSuccessfulPaymentRecord({
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+      expectedGrandTotal
+    });
+
+    if (!verificationResult.success) {
+      console.warn(`🚨 Razorpay Payment Verification Failed: ${verificationResult.error}`);
+      return res.status(400).json(verificationResult);
+    }
+
+    res.json(verificationResult);
+  } catch (error) {
+    console.error('Error verifying Razorpay payment:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // POST /api/orders - Create a new order or append items to active running order
 app.post('/api/orders', async (req, res) => {
   try {
-    const savedOrder = await saveOrder(req.body);
-    io.emit('order:new', savedOrder);
-    io.emit('order:status_update', savedOrder);
-    console.log(`🍊 Order [${savedOrder.id}] processed! (${savedOrder.type.toUpperCase()} - Total Items: ${savedOrder.items.length})`);
-    res.status(201).json({ success: true, order: savedOrder });
+    const isTest = isDevTestAuthorized(req);
+    const orderData = req.body || {};
+
+    // Strict Backend Security Verification for Dine-In Orders
+    if (orderData.type === 'dine_in') {
+      orderData.paymentMethod = 'Pay at Table';
+      orderData.paymentStatus = 'Pay at Table';
+
+      if (!isTest) {
+        const secCheck = verifyDineInSecurity(orderData.tableNumber, orderData.tablePin, orderData.lat, orderData.lng);
+        if (!secCheck.valid) {
+          console.warn(`⚠️ Blocked Unauthorized Dine-In Order Attempt for Table #${orderData.tableNumber}: ${secCheck.reason}`);
+          return res.status(403).json({
+            success: false,
+            error: `Dine-In Security Check Failed: ${secCheck.reason}`
+          });
+        }
+      }
+    } else if (orderData.type === 'online') {
+      if (orderData.paymentMethod === 'Cash on Delivery') {
+        orderData.paymentStatus = 'Pending - Cash on Delivery';
+      } else if (orderData.razorpayPaymentId) {
+        orderData.paymentMethod = 'Razorpay Online';
+        orderData.paymentStatus = 'PAID (Razorpay)';
+      }
+    }
+
+    const savedOrder = await saveOrder(orderData, isTest);
+
+    if (isTest) {
+      io.emit('test-new-order', savedOrder);
+      console.log(`🧪 Test Order [${savedOrder.id}] processed (Isolated from Owner Production App)`);
+    } else {
+      io.emit('production-new-order', savedOrder);
+      io.emit('order:new', savedOrder);
+      io.emit('order:status_update', savedOrder);
+      console.log(`🍊 Production Order [${savedOrder.id}] processed! (${savedOrder.type.toUpperCase()} - Payment: ${savedOrder.paymentStatus || 'Pending'})`);
+    }
+
+    res.status(201).json({ success: true, order: savedOrder, isTest });
   } catch (error) {
     console.error('Error saving order:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
+
+
+
 // PATCH /api/orders/:id/status - Update order status
 app.patch('/api/orders/:id/status', async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, rejectionReason } = req.body;
     if (!status) {
       return res.status(400).json({ success: false, error: 'Status is required' });
     }
-    const updatedOrder = await updateOrderStatus(req.params.id, status);
+    const updatedOrder = await updateOrderStatus(req.params.id, status, rejectionReason);
     if (!updatedOrder) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
     io.emit('order:status_update', updatedOrder);
-    console.log(`🔄 Order [${updatedOrder.id}] status updated to: ${status.toUpperCase()}`);
+    if (updatedOrder.isTest) {
+      io.emit('test-order-status-update', updatedOrder);
+    } else {
+      io.emit('production-order-status-update', updatedOrder);
+    }
+    console.log(`🔄 Order [${updatedOrder.id}] status updated to: ${status.toUpperCase()} ${rejectionReason ? `(Reason: ${rejectionReason})` : ''}`);
     res.json({ success: true, order: updatedOrder });
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 // GET /api/orders/history - Get past order dates summary
 app.get('/api/orders/history', async (req, res) => {

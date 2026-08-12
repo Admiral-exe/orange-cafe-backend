@@ -26,7 +26,29 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap');
     body { font-family: 'Inter', sans-serif; }
     .font-heading { font-family: 'Outfit', sans-serif; }
+
+    @media print {
+      body * { visibility: hidden; }
+      .printable-table-grid, .printable-table-grid * { visibility: visible; }
+      .printable-table-grid {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        display: grid !important;
+        grid-template-cols: repeat(2, 1fr) !important;
+        gap: 20px !important;
+        padding: 20px !important;
+        background: white !important;
+      }
+      .print-card {
+        border: 2px solid #000 !important;
+        box-shadow: none !important;
+        page-break-inside: avoid !important;
+      }
+    }
   </style>
+
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen selection:bg-orange-500 selection:text-white">
   <div id="root"></div>
@@ -78,6 +100,12 @@
       const [deleteTargetItem, setDeleteTargetItem] = useState(null);
       const [deleteConfirmStep, setDeleteConfirmStep] = useState(1);
       const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+      // Order Rejection Modal State
+      const [rejectingOrder, setRejectingOrder] = useState(null);
+      const [rejectionReasonOption, setRejectionReasonOption] = useState('stock');
+      const [customRejectionReason, setCustomRejectionReason] = useState('');
+
 
       // Add Item Form State
       const [newItemForm, setNewItemForm] = useState({
@@ -233,7 +261,16 @@
             socket.on('connect', () => setIsConnected(true));
             socket.on('disconnect', () => setIsConnected(false));
 
+            socket.on('production-new-order', (newOrder) => {
+              setOrders((prev) => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
+              playOrderAlertSound();
+              if (window.electronAPI && window.electronAPI.notifyNewOrder) {
+                window.electronAPI.notifyNewOrder(newOrder);
+              }
+            });
+
             socket.on('order:new', (newOrder) => {
+              if (newOrder.isTest) return;
               setOrders((prev) => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
               playOrderAlertSound();
             });
@@ -242,10 +279,17 @@
               setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
             });
 
-            socket.on('reservation:new', (newRes) => {
+            socket.on('production-new-reservation', (newRes) => {
               setReservations((prev) => [newRes, ...prev]);
               playOrderAlertSound();
             });
+
+            socket.on('reservation:new', (newRes) => {
+              if (newRes.isTest) return;
+              setReservations((prev) => [newRes, ...prev]);
+              playOrderAlertSound();
+            });
+
 
             socket.on('reservation:status_update', (updatedRes) => {
               setReservations((prev) => prev.map((r) => (r.id === updatedRes.id ? updatedRes : r)));
@@ -282,13 +326,13 @@
         }
       };
 
-      const updateStatus = async (order, nextStatus) => {
+      const updateStatus = async (order, nextStatus, rejectionReason = '') => {
         try {
           const encodedId = encodeURIComponent(order.id);
           const res = await fetch(`/api/orders/${encodedId}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: nextStatus })
+            body: JSON.stringify({ status: nextStatus, rejectionReason })
           });
           const data = await res.json();
           if (data.success) {
@@ -302,6 +346,28 @@
           alert(`Network error updating order status: ${e.message}`);
         }
       };
+
+      const handleConfirmReject = async () => {
+        if (!rejectingOrder) return;
+        let finalReason = '';
+        if (customRejectionReason.trim()) {
+          finalReason = customRejectionReason.trim();
+        } else {
+          const map = {
+            stock: 'Items Out of Stock / Ingredients Unavailable',
+            rush: 'High Kitchen Rush / Heavy Order Queue',
+            location: 'Delivery Location Unreachable / Out of Range',
+            closing: 'Restaurant Closing / Kitchen Maintenance',
+            other: 'Order rejected by kitchen staff'
+          };
+          finalReason = map[rejectionReasonOption] || 'Order rejected by kitchen staff';
+        }
+
+        await updateStatus(rejectingOrder, 'rejected', finalReason);
+        setRejectingOrder(null);
+        setCustomRejectionReason('');
+      };
+
 
       const updateReservationStatus = async (resItem, nextStatus) => {
         try {
@@ -753,7 +819,7 @@
           <main className="max-w-7xl mx-auto px-4 py-6 w-full space-y-6 flex-grow">
             
             {/* VIEW SELECTION TAB TILES */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
               <button
                 onClick={() => setOrderTypeFilter('dine_in')}
                 className={`p-3.5 rounded-2xl border text-left transition-all ${orderTypeFilter === 'dine_in' ? 'bg-orange-500 text-white border-orange-600 shadow-md ring-2 ring-orange-400' : 'bg-white border-slate-200 text-slate-700 hover:border-orange-300'}`}
@@ -803,6 +869,14 @@
               </button>
 
               <button
+                onClick={() => setOrderTypeFilter('table_qrs')}
+                className={`p-3.5 rounded-2xl border text-left transition-all ${orderTypeFilter === 'table_qrs' ? 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-400' : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300'}`}
+              >
+                <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-80 block">📱 Table QRs</span>
+                <span className="font-heading font-extrabold text-xl block mt-0.5">Print Studio</span>
+              </button>
+
+              <button
                 onClick={() => { setOrderTypeFilter('pos_create'); fetchMenuAndStock(); }}
                 className={`p-3.5 rounded-2xl border text-left transition-all ${orderTypeFilter === 'pos_create' ? 'bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-400' : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white border-amber-600 shadow-md'}`}
               >
@@ -811,8 +885,68 @@
               </button>
             </div>
 
-            {/* RESERVATIONS VIEW */}
-            {orderTypeFilter === 'reservations' ? (
+            {/* TABLE QR CODE & PIN PRINT STUDIO VIEW */}
+            {orderTypeFilter === 'table_qrs' ? (
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-200">
+                  <div>
+                    <h3 className="font-heading font-extrabold text-2xl text-slate-900">📱 Table QR Codes & PIN Print Studio</h3>
+                    <p className="text-xs text-slate-500">Vector QR codes & 3-Digit PIN stickers for physical cafe tables (Tables 1 to 6)</p>
+                  </div>
+
+                  <button
+                    onClick={() => window.print()}
+                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md flex items-center gap-2"
+                  >
+                    <span>🖨️ Print Table Stickers & Cards</span>
+                  </button>
+                </div>
+
+                {/* Printable Grid of 6 Table Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 printable-table-grid">
+                  {[
+                    { table: '1', pin: '101' },
+                    { table: '2', pin: '102' },
+                    { table: '3', pin: '103' },
+                    { table: '4', pin: '104' },
+                    { table: '5', pin: '105' },
+                    { table: '6', pin: '106' }
+                  ].map((item) => {
+                    const targetUrl = `https://orangecafe.co.in/?table=0${item.table}`;
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(targetUrl)}`;
+                    return (
+                      <div
+                        key={item.table}
+                        className="bg-white rounded-3xl p-6 border-2 border-slate-900 shadow-lg text-center space-y-4 relative overflow-hidden break-inside-avoid print-card"
+                      >
+                        <div className="bg-orange-500 text-white py-2 px-4 rounded-xl font-heading font-extrabold text-base uppercase tracking-wider shadow-sm">
+                          🍊 ORANGE CAFE — TABLE #{item.table}
+                        </div>
+
+                        <div className="w-44 h-44 mx-auto bg-white p-2 border-2 border-slate-200 rounded-2xl shadow-inner flex items-center justify-center">
+                          <img
+                            src={qrUrl}
+                            alt={`Table ${item.table} QR Code`}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+
+                        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">PHYSICAL TABLE PIN</span>
+                          <span className="font-mono font-extrabold text-2xl text-slate-900 tracking-widest block bg-white py-1 px-4 rounded-xl border border-slate-300 shadow-xs inline-block">
+                            {item.pin}
+                          </span>
+                          <p className="text-[10px] text-slate-600 font-semibold pt-1">
+                            Scan QR or enter PIN <strong className="text-slate-900">{item.pin}</strong> to unlock Dine-In
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : orderTypeFilter === 'reservations' ? (
+
               <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
                 <div className="flex justify-between items-center pb-4 border-b border-slate-200">
                   <div>
@@ -1365,10 +1499,22 @@
                                 🍽️ Table #{order.tableNumber || 1}
                               </span>
                             ) : (
-                              <span className="bg-green-100 text-green-800 border border-green-300 px-3 py-1 rounded-full text-xs font-extrabold">
-                                🛵 Online Delivery
-                              </span>
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="bg-green-100 text-green-800 border border-green-300 px-3 py-1 rounded-full text-xs font-extrabold">
+                                  🛵 Online Delivery
+                                </span>
+                                {order.paymentStatus === 'PAID (Razorpay)' || String(order.paymentStatus).includes('PAID') ? (
+                                  <span className="bg-emerald-600 text-white font-extrabold text-[10px] px-2 py-0.5 rounded-full shadow-xs">
+                                    💳 PAID (Razorpay)
+                                  </span>
+                                ) : (
+                                  <span className="bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-[10px] px-2 py-0.5 rounded-full">
+                                    💵 Cash on Delivery
+                                  </span>
+                                )}
+                              </div>
                             )}
+
                           </div>
 
                           {/* Customer Details */}
@@ -1464,22 +1610,56 @@
                           </div>
 
                           {order.status === 'pending' && (
-                            <button
-                              onClick={() => updateStatus(order, 'preparing')}
-                              className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-extrabold text-xs shadow-md animate-bounce"
-                            >
-                              {order.type === 'dine_in' ? 'Accept & Start Preparing ➔' : 'Confirm Order & Send Bill ➔'}
-                            </button>
+                            <div className="space-y-2">
+                              <button
+                                onClick={() => updateStatus(order, 'preparing')}
+                                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-extrabold text-xs shadow-md animate-bounce"
+                              >
+                                {order.type === 'dine_in' ? 'Accept & Start Preparing ➔' : 'Confirm Order & Send Bill ➔'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setRejectingOrder(order);
+                                  setRejectionReasonOption('stock');
+                                  setCustomRejectionReason('');
+                                }}
+                                className="w-full py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-extrabold text-xs border border-red-200 transition-all flex items-center justify-center gap-1"
+                              >
+                                <span>❌ Reject Order</span>
+                              </button>
+                            </div>
                           )}
 
                           {order.status === 'preparing' && (
-                            <button
-                              onClick={() => updateStatus(order, 'ready')}
-                              className="w-full py-3 rounded-2xl bg-gradient-to-r from-orange-500 to-green-600 text-white font-extrabold text-xs shadow-md"
-                            >
-                              Mark Ready ➔
-                            </button>
+                            <div className="space-y-2">
+                              <button
+                                onClick={() => updateStatus(order, 'ready')}
+                                className="w-full py-3 rounded-2xl bg-gradient-to-r from-orange-500 to-green-600 text-white font-extrabold text-xs shadow-md"
+                              >
+                                Mark Ready ➔
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setRejectingOrder(order);
+                                  setRejectionReasonOption('stock');
+                                  setCustomRejectionReason('');
+                                }}
+                                className="w-full py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs border border-red-200 transition-all flex items-center justify-center gap-1"
+                              >
+                                <span>❌ Reject Order</span>
+                              </button>
+                            </div>
                           )}
+
+                          {order.status === 'rejected' && (
+                            <div className="p-3 bg-red-50 rounded-2xl border border-red-200 text-xs text-red-800 space-y-1">
+                              <span className="font-extrabold text-red-900 block">❌ Order Rejected</span>
+                              <p className="font-semibold text-red-700 bg-white p-2 rounded-xl border border-red-200">
+                                "{order.rejectionReason || 'Rejected by staff'}"
+                              </p>
+                            </div>
+                          )}
+
 
                           {order.status === 'ready' && (
                             <div className="space-y-2">
@@ -1668,8 +1848,8 @@
                     />
                   </div>
 
-                  {/* Checkboxes */}
-                  <div className="flex gap-4 pt-1">
+                  {/* BOGO Offer Eligibility & Category Pair Selection */}
+                  <div className="p-3 rounded-2xl bg-orange-50/60 border border-orange-200 space-y-2">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
@@ -1677,9 +1857,30 @@
                         onChange={(e) => setNewItemForm({ ...newItemForm, isBogoEligible: e.target.checked })}
                         className="w-4 h-4 text-orange-500 rounded"
                       />
-                      <span className="font-bold text-slate-700">BOGO Free Eligible</span>
+                      <span className="font-extrabold text-slate-900 text-xs">🎁 Enable BOGO Offer Eligibility</span>
                     </label>
+
+                    {newItemForm.isBogoEligible && (
+                      <div className="pt-2 border-t border-orange-200/80 space-y-1">
+                        <span className="text-[10px] font-bold text-orange-800 uppercase block">
+                          Same-Category Items Eligible for BOGO Pairing:
+                        </span>
+                        <div className="max-h-28 overflow-y-auto space-y-1 bg-white p-2 rounded-xl border border-slate-200">
+                          {menuItems.filter(i => i.category === newItemForm.category).length === 0 ? (
+                            <p className="text-[11px] text-slate-400 italic">No other items in this category yet.</p>
+                          ) : (
+                            menuItems.filter(i => i.category === newItemForm.category).map(sameCatItem => (
+                              <div key={sameCatItem.id} className="flex items-center justify-between gap-2 p-1 text-[11px]">
+                                <span className="font-semibold text-slate-800">{sameCatItem.name}</span>
+                                <span className="text-orange-600 font-bold">₹{sameCatItem.price}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
+
 
                   <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
                     <button type="button" onClick={() => setIsAddItemModalOpen(false)} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold">Cancel</button>
@@ -1743,6 +1944,40 @@
                     ></textarea>
                   </div>
 
+                  {/* BOGO Offer Eligibility & Category Pair Selection */}
+                  <div className="p-3 rounded-2xl bg-orange-50/60 border border-orange-200 space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editingItem.isBogoEligible || false}
+                        onChange={(e) => setEditingItem({ ...editingItem, isBogoEligible: e.target.checked })}
+                        className="w-4 h-4 text-orange-500 rounded"
+                      />
+                      <span className="font-extrabold text-slate-900 text-xs">🎁 Enable BOGO Offer Eligibility</span>
+                    </label>
+
+                    {editingItem.isBogoEligible && (
+                      <div className="pt-2 border-t border-orange-200/80 space-y-1">
+                        <span className="text-[10px] font-bold text-orange-800 uppercase block">
+                          Same-Category Items Eligible for BOGO Pairing ({menuCategories.find(c => c.id === editingItem.category)?.name || editingItem.category}):
+                        </span>
+                        <div className="max-h-28 overflow-y-auto space-y-1 bg-white p-2 rounded-xl border border-slate-200">
+                          {menuItems.filter(i => i.category === editingItem.category && i.id !== editingItem.id).length === 0 ? (
+                            <p className="text-[11px] text-slate-400 italic">No other items in this category yet.</p>
+                          ) : (
+                            menuItems.filter(i => i.category === editingItem.category && i.id !== editingItem.id).map(sameCatItem => (
+                              <div key={sameCatItem.id} className="flex items-center justify-between gap-2 p-1 text-[11px]">
+                                <span className="font-semibold text-slate-800">{sameCatItem.name}</span>
+                                <span className="text-orange-600 font-bold">₹{sameCatItem.price}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+
                   <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
                     <button type="button" onClick={() => setIsEditItemModalOpen(false)} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold">Cancel</button>
                     <button type="submit" className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-extrabold shadow-md">Save Changes</button>
@@ -1796,6 +2031,82 @@
               </div>
             </div>
           )}
+
+          {/* REJECT ORDER POP-UP MODAL */}
+          {rejectingOrder && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999]">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-red-200 shadow-2xl space-y-4">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                  <h3 className="font-heading font-extrabold text-lg text-red-900 flex items-center gap-2">
+                    <span>❌ Reject Order {rejectingOrder.id}</span>
+                  </h3>
+                  <button onClick={() => setRejectingOrder(null)} className="text-slate-400 font-bold hover:text-slate-600">✕</button>
+                </div>
+
+                <p className="text-xs text-slate-600">
+                  Select a reason to inform customer <strong>{rejectingOrder.customerName}</strong> why their order is being rejected:
+                </p>
+
+                <div className="space-y-2 text-xs">
+                  {[
+                    { id: 'stock', text: '🍕 Items Out of Stock / Ingredients Unavailable' },
+                    { id: 'rush', text: '⏱️ High Kitchen Rush / Heavy Order Queue' },
+                    { id: 'location', text: '📍 Delivery Location Unreachable / Out of Range' },
+                    { id: 'closing', text: '🚪 Restaurant Closing / Kitchen Maintenance' },
+                    { id: 'other', text: '✍️ Other Reason (Write custom note below)' }
+                  ].map(opt => (
+                    <label
+                      key={opt.id}
+                      onClick={() => setRejectionReasonOption(opt.id)}
+                      className={`flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition-all ${
+                        rejectionReasonOption === opt.id ? 'bg-red-50 border-red-300 ring-2 ring-red-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="rejectionReasonOption"
+                        checked={rejectionReasonOption === opt.id}
+                        onChange={() => setRejectionReasonOption(opt.id)}
+                        className="w-4 h-4 text-red-600"
+                      />
+                      <span className="font-bold text-slate-800">{opt.text}</span>
+                    </label>
+                  ))}
+
+                  <div className="pt-2">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                      Custom Note / Additional Details for Customer:
+                    </label>
+                    <textarea
+                      rows="2"
+                      placeholder="Type custom rejection reason to display to customer..."
+                      value={customRejectionReason}
+                      onChange={(e) => setCustomRejectionReason(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 font-medium text-xs text-slate-900 focus:outline-none focus:border-red-500"
+                    ></textarea>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setRejectingOrder(null)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmReject}
+                    className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs shadow-md"
+                  >
+                    Confirm Rejection
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
 
         </div>
       );

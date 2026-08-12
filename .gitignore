@@ -1,6 +1,32 @@
+# Dependencies
 node_modules/
+
+# Environment Variables & Secret Keys
 .env
-.DS_Store
+.env.*
+!.env.example
+
+# Persistent Data Directories & Files (Customer Orders, Reservations, Stock, Settings)
+Data/
+Orders/
+Reservations/
+TestOrders/
+TestReservations/
+*.json
+!package.json
+!package-lock.json
+!render.yaml
+*.tmp
+
+# Logs & Temp Files
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

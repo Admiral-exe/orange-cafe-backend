@@ -8,11 +8,14 @@ const __dirname = path.dirname(__filename);
 // Structured Data Directories
 const dataDir = path.join(__dirname, 'Data');
 const ordersDir = path.join(dataDir, 'Orders');
+const testOrdersDir = path.join(dataDir, 'TestOrders');
 const reservationsDir = path.join(dataDir, 'Reservations');
+const testReservationsDir = path.join(dataDir, 'TestReservations');
 const menuDir = path.join(dataDir, 'Menu');
 const stockDir = path.join(dataDir, 'Stock');
+const settingsDir = path.join(dataDir, 'Settings');
 
-[dataDir, ordersDir, reservationsDir, menuDir, stockDir].forEach(dir => {
+[dataDir, ordersDir, testOrdersDir, reservationsDir, testReservationsDir, menuDir, stockDir, settingsDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -22,25 +25,30 @@ const stockDir = path.join(dataDir, 'Stock');
 const menuStorePath = path.join(menuDir, 'menuStore.json');
 const itemHistoryCatalogPath = path.join(menuDir, 'itemHistoryCatalog.json');
 const stockFilePath = path.join(stockDir, 'stock.json');
+const settingsFilePath = path.join(settingsDir, 'settings.json');
 
 // Get file path for a specific date (YYYY-MM-DD)
-const getOrdersFilePath = (dateStr) => {
+const getOrdersFilePath = (dateStr, isTest = false) => {
   const date = dateStr || new Date().toISOString().split('T')[0];
-  return path.join(ordersDir, `orders-${date}.json`);
+  const targetDir = isTest ? testOrdersDir : ordersDir;
+  const prefix = isTest ? 'test-orders' : 'orders';
+  return path.join(targetDir, `${prefix}-${date}.json`);
 };
 
 // Helper to read orders for a date
-const readOrdersForDate = (dateStr) => {
-  const filePath = getOrdersFilePath(dateStr);
+const readOrdersForDate = (dateStr, isTest = false) => {
+  const filePath = getOrdersFilePath(dateStr, isTest);
   if (!fs.existsSync(filePath)) {
-    // Migration check from old ServerSide/Orders directory
-    const oldPath = path.join(__dirname, 'Orders', `orders-${dateStr}.json`);
-    if (fs.existsSync(oldPath)) {
-      try {
-        const oldData = fs.readFileSync(oldPath, 'utf-8');
-        fs.writeFileSync(filePath, oldData);
-        return JSON.parse(oldData || '[]');
-      } catch (e) {}
+    if (!isTest) {
+      // Migration check from old ServerSide/Orders directory
+      const oldPath = path.join(__dirname, 'Orders', `orders-${dateStr}.json`);
+      if (fs.existsSync(oldPath)) {
+        try {
+          const oldData = fs.readFileSync(oldPath, 'utf-8');
+          fs.writeFileSync(filePath, oldData);
+          return JSON.parse(oldData || '[]');
+        } catch (e) {}
+      }
     }
     return [];
   }
@@ -53,9 +61,8 @@ const readOrdersForDate = (dateStr) => {
   }
 };
 
-// Helper to write orders for a date atomically
-const writeOrdersForDate = (dateStr, orders) => {
-  const filePath = getOrdersFilePath(dateStr);
+const writeOrdersForDate = (dateStr, orders, isTest = false) => {
+  const filePath = getOrdersFilePath(dateStr, isTest);
   const tempPath = filePath + '.tmp';
   try {
     fs.writeFileSync(tempPath, JSON.stringify(orders, null, 2), 'utf-8');
@@ -68,24 +75,28 @@ const writeOrdersForDate = (dateStr, orders) => {
 };
 
 // Save a new order or append items to an active running order for today
-export const saveOrder = async (orderData) => {
-  const today = new Date().toISOString().split('T')[0];
-  const orders = readOrdersForDate(today);
+export const saveOrder = async (orderData, isTest = false) => {
 
-  // Check if an existing open order exists for this table (dine-in) or phone number (online) that is NOT completed
+  const today = new Date().toISOString().split('T')[0];
+  const orders = readOrdersForDate(today, isTest);
+  const isTestFlag = Boolean(isTest || orderData.isTest);
+
+  // Check if an existing open order exists for this table (dine-in) or phone number (online) that is NOT closed/terminal
+  const CLOSED_STATUSES = ['completed', 'rejected', 'cancelled'];
   let existingIndex = -1;
   if (orderData.type === 'dine_in' && orderData.tableNumber) {
     existingIndex = orders.findIndex(o =>
       o.type === 'dine_in' &&
       String(o.tableNumber) === String(orderData.tableNumber) &&
-      o.status !== 'completed'
+      !CLOSED_STATUSES.includes(o.status)
     );
   } else if (orderData.phone) {
     const cleanPhone = String(orderData.phone).replace(/\D/g, '');
     if (cleanPhone.length >= 10) {
       existingIndex = orders.findIndex(o =>
+        (o.type || 'dine_in') === 'online' &&
         String(o.phone || '').replace(/\D/g, '') === cleanPhone &&
-        o.status !== 'completed'
+        !CLOSED_STATUSES.includes(o.status)
       );
     }
   }
@@ -115,15 +126,13 @@ export const saveOrder = async (orderData) => {
         for (let q = 0; q < i.quantity; q++) bogoPrices.push(Number(i.price));
       }
     });
-    bogoPrices.sort((a, b) => b - a);
+    bogoPrices.sort((a, b) => a - b);
     const freeCount = Math.floor(bogoPrices.length / 2);
-    for (let k = 0; k < freeCount; k++) {
-      bogoDiscount += bogoPrices[bogoPrices.length - 1 - k];
-    }
+    for (let f = 0; f < freeCount; f++) bogoDiscount += bogoPrices[f];
 
-    const netSub = Math.max(0, sub - bogoDiscount);
-    const sc = Math.round((netSub * 0.10) * 100) / 100;
-    const gt = Math.round((netSub + sc) * 100) / 100;
+    const afterDiscount = Math.max(0, sub - bogoDiscount);
+    const sc = Math.round(afterDiscount * 0.025 * 100) / 100;
+    const gt = Math.round((afterDiscount + (sc * 2)) * 100) / 100;
 
     existingOrder.items = combinedItems;
     existingOrder.subtotal = sub;
@@ -131,30 +140,39 @@ export const saveOrder = async (orderData) => {
     existingOrder.serviceCharge = sc;
     existingOrder.taxes = sc;
     existingOrder.grandTotal = gt;
-    existingOrder.status = 'preparing'; // Reset status to kitchen prep for new items
     existingOrder.updatedAt = new Date().toISOString();
+    existingOrder.isTest = isTestFlag;
+    delete existingOrder.rejectionReason;
 
-    orders[existingIndex] = existingOrder;
-    writeOrdersForDate(today, orders);
-    console.log(`🔄 Merged additional items into Active Order [${existingOrder.id}]! Total Items: ${combinedItems.length}, Grand Total: ₹${gt}`);
+    writeOrdersForDate(today, orders, isTestFlag);
     return existingOrder;
   }
 
-  // Create brand new order if no active open order exists
-  const sub = Number(orderData.subtotal || 0);
-  const bogo = Number(orderData.bogoDiscount || 0);
-  const netSub = Math.max(0, sub - bogo);
-  const sc = orderData.serviceCharge !== undefined 
-    ? Number(orderData.serviceCharge)
-    : (orderData.taxes !== undefined ? Number(orderData.taxes) : Math.round(netSub * 0.10 * 100) / 100);
-  const gt = orderData.grandTotal !== undefined ? Number(orderData.grandTotal) : netSub + sc;
+  // Create brand new order
+  const fileOrders = readOrdersForDate(today, isTestFlag);
+  const nextNumber = fileOrders.length + 1;
+  const orderId = `#${nextNumber}`;
 
-  // Calculate daily sequential order number starting at #1 for today if ID not provided
-  const orderSeqNum = orders.length + 1;
-  const newOrderId = orderData.id || `#${orderSeqNum}`;
+  const items = orderData.items || [];
+  const sub = items.reduce((sum, i) => sum + (Number(i.price) * Number(i.quantity)), 0);
+  
+  let bogo = 0;
+  const bp = [];
+  items.forEach(i => {
+    if (i.name.toLowerCase().includes('pizza')) {
+      for (let q = 0; q < i.quantity; q++) bp.push(Number(i.price));
+    }
+  });
+  bp.sort((a, b) => a - b);
+  const fc = Math.floor(bp.length / 2);
+  for (let f = 0; f < fc; f++) bogo += bp[f];
+
+  const ad = Math.max(0, sub - bogo);
+  const sc = Math.round(ad * 0.025 * 100) / 100;
+  const gt = Math.round((ad + (sc * 2)) * 100) / 100;
 
   const newOrder = {
-    id: newOrderId,
+    id: orderId,
     type: orderData.type || 'dine_in',
     tableNumber: orderData.tableNumber || null,
     customerName: orderData.customerName || 'Customer',
@@ -163,25 +181,26 @@ export const saveOrder = async (orderData) => {
     deliveryAddress: orderData.deliveryAddress || null,
     mapUrl: orderData.mapUrl || '',
     paymentMethod: orderData.paymentMethod || 'Cash (Paid)',
-    items: orderData.items || [],
+    items: items,
     subtotal: sub,
     bogoDiscount: bogo,
     serviceCharge: sc,
     taxes: sc,
     grandTotal: gt,
     status: orderData.status || 'pending',
-    createdAt: orderData.createdAt || new Date().toISOString()
+    createdAt: orderData.createdAt || new Date().toISOString(),
+    isTest: isTestFlag
   };
 
   orders.unshift(newOrder);
-  writeOrdersForDate(today, orders);
+  writeOrdersForDate(today, orders, isTestFlag);
   return newOrder;
 };
 
 // Fetch all orders for today
-export const getTodayOrders = async () => {
+export const getTodayOrders = async (isTest = false) => {
   const today = new Date().toISOString().split('T')[0];
-  return readOrdersForDate(today);
+  return readOrdersForDate(today, isTest);
 };
 
 // Helper for matching order IDs flexibly across formats (#1, 1, %231, ORD-1)
@@ -228,7 +247,7 @@ export const getOrderById = async (orderId) => {
 };
 
 // Update status of an existing order
-export const updateOrderStatus = async (orderId, status) => {
+export const updateOrderStatus = async (orderId, status, rejectionReason = '') => {
   if (!orderId) return null;
   const today = new Date().toISOString().split('T')[0];
   let orders = readOrdersForDate(today);
@@ -236,6 +255,9 @@ export const updateOrderStatus = async (orderId, status) => {
 
   if (index !== -1) {
     orders[index].status = status;
+    if (rejectionReason) {
+      orders[index].rejectionReason = rejectionReason;
+    }
     orders[index].updatedAt = new Date().toISOString();
     writeOrdersForDate(today, orders);
     return orders[index];
@@ -251,6 +273,9 @@ export const updateOrderStatus = async (orderId, status) => {
           const idx = fileOrders.findIndex(o => isOrderIdMatch(o, orderId));
           if (idx !== -1) {
             fileOrders[idx].status = status;
+            if (rejectionReason) {
+              fileOrders[idx].rejectionReason = rejectionReason;
+            }
             fileOrders[idx].updatedAt = new Date().toISOString();
             const tempPath = filePath + '.tmp';
             fs.writeFileSync(tempPath, JSON.stringify(fileOrders, null, 2), 'utf-8');
@@ -263,6 +288,7 @@ export const updateOrderStatus = async (orderId, status) => {
   }
   return null;
 };
+
 
 // Get list of past dates with summaries
 export const getPastOrdersHistory = async () => {
@@ -493,4 +519,89 @@ export const updateMenuStock = (itemId, inStock) => {
   fs.writeFileSync(stockFilePath, JSON.stringify(map, null, 2));
   updateMenuItem(itemId, { inStock });
   return map;
+};
+
+// System Settings Helper
+export const getMaintenanceSettings = () => {
+  const defaultSettings = {
+    maintenance: false,
+    message: "This site is under maintenance, please come back later."
+  };
+  if (fs.existsSync(settingsFilePath)) {
+    try {
+      const content = fs.readFileSync(settingsFilePath, 'utf-8');
+      return { ...defaultSettings, ...JSON.parse(content || '{}') };
+    } catch (e) {
+      return defaultSettings;
+    }
+  }
+  return defaultSettings;
+};
+
+export const updateMaintenanceSettings = (newSettings) => {
+  const current = getMaintenanceSettings();
+  const updated = { ...current, ...newSettings };
+  try {
+    fs.writeFileSync(settingsFilePath, JSON.stringify(updated, null, 2));
+    return updated;
+  } catch (e) {
+    return current;
+  }
+};
+
+// Geofence & Table PIN Security Constants & Verifier
+export const SERVER_CAFE_LOCATION = {
+  lat: 22.5532,
+  lng: 72.9238,
+  maxRadiusMeters: 100
+};
+
+export const SERVER_TABLE_PINS = {
+  '1': '101',
+  '2': '102',
+  '3': '103',
+  '4': '104',
+  '5': '105',
+  '6': '106'
+};
+
+export const calculateDistanceMeters = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+};
+
+export const verifyDineInSecurity = (tableNumber, tablePin, lat, lng) => {
+  const cleanTable = String(tableNumber || '1').trim();
+  const cleanPin = String(tablePin || '').trim();
+
+  // 1. Table PIN Check
+  const expectedPin = SERVER_TABLE_PINS[cleanTable];
+  if (expectedPin && cleanPin === expectedPin) {
+    return { valid: true, method: 'TABLE_PIN', tableNumber: cleanTable };
+  }
+
+  // 2. Geofence Check
+  if (lat && lng) {
+    const dist = calculateDistanceMeters(Number(lat), Number(lng), SERVER_CAFE_LOCATION.lat, SERVER_CAFE_LOCATION.lng);
+    if (dist <= SERVER_CAFE_LOCATION.maxRadiusMeters) {
+      return { valid: true, method: 'GPS_GEOFENCE', distance: dist, tableNumber: cleanTable };
+    }
+    return {
+      valid: false,
+      reason: `GPS distance (${dist}m) exceeds ${SERVER_CAFE_LOCATION.maxRadiusMeters}m radius and Table PIN is invalid.`
+    };
+  }
+
+  return {
+    valid: false,
+    reason: `Missing valid 3-digit Table PIN (e.g. ${expectedPin || '101'}) or GPS location.`
+  };
 };
