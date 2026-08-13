@@ -214,7 +214,7 @@ app.get('/api/settings', (req, res) => {
   res.json({
     success: true,
     staffPhone: staffGatewayPhone,
-    onlineDelivery: settings.onlineDelivery !== false
+    onlineDelivery: Boolean(settings.onlineDelivery)
   });
 });
 
@@ -223,7 +223,7 @@ app.get('/api/settings/delivery', (req, res) => {
   const settings = getMaintenanceSettings();
   res.json({
     success: true,
-    onlineDelivery: settings.onlineDelivery !== false
+    onlineDelivery: Boolean(settings.onlineDelivery)
   });
 });
 
@@ -232,9 +232,9 @@ app.post('/api/settings/delivery', (req, res) => {
   const { onlineDelivery } = req.body;
   if (typeof onlineDelivery === 'boolean') {
     const updated = updateMaintenanceSettings({ onlineDelivery });
-    io.emit('delivery-status-changed', { onlineDelivery: updated.onlineDelivery !== false });
+    io.emit('delivery-status-changed', { onlineDelivery: Boolean(updated.onlineDelivery) });
     console.log(`🛵 Online Delivery Service updated to: ${updated.onlineDelivery ? 'ENABLED (ON)' : 'DISABLED (OFF)'}`);
-    return res.json({ success: true, onlineDelivery: updated.onlineDelivery !== false });
+    return res.json({ success: true, onlineDelivery: Boolean(updated.onlineDelivery) });
   }
   res.status(400).json({ success: false, error: 'onlineDelivery boolean parameter required' });
 });
@@ -479,7 +479,7 @@ app.post('/api/orders', async (req, res) => {
     // Block online delivery orders if Online Delivery Service is toggled OFF by staff
     if (orderData.type === 'online') {
       const sysSettings = getMaintenanceSettings();
-      if (sysSettings.onlineDelivery === false) {
+      if (!sysSettings.onlineDelivery) {
         return res.status(400).json({
           success: false,
           error: 'Online delivery service is currently unavailable. This service will be available soon!'
@@ -675,12 +675,46 @@ app.post('/api/stock', (req, res) => {
   }
 });
 
+// Active Staff Socket Tracking & Auto-Turnoff for Online Delivery
+const activeStaffSockets = new Set();
+let staffDisconnectTimer = null;
+
 // Socket.io connection logic
 io.on('connection', (socket) => {
   console.log(`🔌 Client connected: ${socket.id}`);
 
+  // Register socket connection as an active Staff Dashboard instance
+  socket.on('register-staff', () => {
+    activeStaffSockets.add(socket.id);
+    console.log(`👨‍🍳 Staff session registered [Socket: ${socket.id}]. Active staff count: ${activeStaffSockets.size}`);
+    if (staffDisconnectTimer) {
+      clearTimeout(staffDisconnectTimer);
+      staffDisconnectTimer = null;
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`❌ Client disconnected: ${socket.id}`);
+    if (activeStaffSockets.has(socket.id)) {
+      activeStaffSockets.delete(socket.id);
+      console.log(`👨‍🍳 Staff session disconnected. Active staff count: ${activeStaffSockets.size}`);
+
+      // If no staff sessions remain, auto turn-off online delivery after a 4s grace period (handles quick page refresh)
+      if (activeStaffSockets.size === 0) {
+        if (staffDisconnectTimer) clearTimeout(staffDisconnectTimer);
+        staffDisconnectTimer = setTimeout(() => {
+          if (activeStaffSockets.size === 0) {
+            const current = getMaintenanceSettings();
+            if (current.onlineDelivery) {
+              updateMaintenanceSettings({ onlineDelivery: false });
+              io.emit('delivery-status-changed', { onlineDelivery: false });
+              console.log('🛵 All Staff apps closed/disconnected. Online Delivery automatically set to OFF.');
+            }
+          }
+          staffDisconnectTimer = null;
+        }, 4000);
+      }
+    }
   });
 });
 

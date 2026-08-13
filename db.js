@@ -566,7 +566,7 @@ export const getMaintenanceSettings = () => {
   const defaultSettings = {
     maintenance: false,
     message: "This site is under maintenance, please come back later.",
-    onlineDelivery: true
+    onlineDelivery: false
   };
   if (fs.existsSync(settingsFilePath)) {
     try {

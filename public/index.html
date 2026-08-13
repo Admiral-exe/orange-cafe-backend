@@ -130,7 +130,7 @@
 
       // Staff Gateway Phone Setting
       const [staffGatewayPhone, setStaffGatewayPhone] = useState('7623007043');
-      const [isOnlineDeliveryActive, setIsOnlineDeliveryActive] = useState(true);
+      const [isOnlineDeliveryActive, setIsOnlineDeliveryActive] = useState(false);
       const [pastHistory, setPastHistory] = useState([]);
       const [selectedPastDate, setSelectedPastDate] = useState(null);
       const [selectedDateOrders, setSelectedDateOrders] = useState([]);
@@ -251,7 +251,7 @@
 
           if (ordersData.success) setOrders(ordersData.orders || []);
           if (resData.success) setReservations(resData.reservations || []);
-          if (delivData.success) setIsOnlineDeliveryActive(delivData.onlineDelivery !== false);
+          if (delivData.success) setIsOnlineDeliveryActive(delivData.onlineDelivery === true);
         } catch (e) {}
         fetchMenuAndStock();
       };
@@ -265,7 +265,10 @@
         if (typeof io !== 'undefined') {
           try {
             socket = io();
-            socket.on('connect', () => setIsConnected(true));
+            socket.on('connect', () => {
+              setIsConnected(true);
+              socket.emit('register-staff');
+            });
             socket.on('disconnect', () => setIsConnected(false));
 
             socket.on('production-new-order', (newOrder) => {
