@@ -1,16 +1,136 @@
 [
-  { "id": "hist-1", "name": "7 Cheese Pizza", "category": "pizzas", "price": 139, "mediumPrice": 299, "description": "Blend of 7 exotic cheeses", "image": "/assets/images/pizza.png" },
-  { "id": "hist-2", "name": "Double Cheese Margherita Pizza", "category": "pizzas", "price": 139, "mediumPrice": 299, "description": "Loaded with Extra Cheese", "image": "/assets/images/pizza.png" },
-  { "id": "hist-3", "name": "Fresh Veggie Pizza", "category": "pizzas", "price": 139, "mediumPrice": 299, "description": "Onion, Green Capsicum, Fresh Tomato", "image": "/assets/images/pizza.png" },
-  { "id": "hist-4", "name": "Mexican Green Wave Pizza", "category": "pizzas", "price": 169, "mediumPrice": 349, "description": "Onion, Capsicum, Jalapeno & Mexican Herbs", "image": "/assets/images/pizza.png" },
-  { "id": "hist-5", "name": "Peppy Paneer Pizza", "category": "pizzas", "price": 169, "mediumPrice": 349, "description": "Juicy Paneer, Crisp Capsicum & Red Paprika", "image": "/assets/images/pizza.png" },
-  { "id": "hist-6", "name": "Farmhouse Special Pizza", "category": "pizzas", "price": 169, "mediumPrice": 349, "description": "Delightful combination of Onion, Capsicum, Tomato & Mushroom", "image": "/assets/images/pizza.png" },
-  { "id": "hist-7", "name": "Crispy Veg Classic Burger", "category": "burgers", "price": 69, "description": "Crispy veg patty with fresh mayo", "image": "/assets/images/burger.png" },
-  { "id": "hist-8", "name": "Spicy Paneer Crunch Burger", "category": "burgers", "price": 109, "description": "Crispy paneer patty with spicy schezwan sauce", "image": "/assets/images/burger.png" },
-  { "id": "hist-9", "name": "Cheese Loaded Club Sandwich", "category": "sandwiches", "price": 119, "description": "3-layer club sandwich with double cheese", "image": "/assets/images/sandwich.png" },
-  { "id": "hist-10", "name": "Garlic Breadsticks with Dip", "category": "garlic_breads", "price": 99, "description": "Baked garlic breadsticks with cheesy jalapeño dip", "image": "/assets/images/fries.png" },
-  { "id": "hist-11", "name": "Peri Peri Loaded Fries", "category": "fries", "price": 99, "description": "Crispy french fries with spicy peri peri dip", "image": "/assets/images/fries.png" },
-  { "id": "hist-12", "name": "Cheesy White Sauce Alfredo Pasta", "category": "pastas", "price": 149, "description": "Penne pasta in rich garlic cream sauce", "image": "/assets/images/pasta.png" },
-  { "id": "hist-13", "name": "Orange Citrus Special Frappe", "category": "orange_drinks", "price": 89, "description": "Signature icy orange frappe", "image": "/assets/images/drinks.png" },
-  { "id": "hist-14", "name": "3 FOR 99* Special Combo Meal", "category": "combos", "price": 99, "description": "1 Classic Burger + 1 Fries + 1 Beverage", "image": "/assets/images/combo.png" }
+  {
+    "id": "item-1786594173521",
+    "name": "Automated Test Cold Coffee",
+    "category": "Beverages",
+    "price": 149,
+    "mediumPrice": null,
+    "hasSizes": false,
+    "sizes": null,
+    "isBogoEligible": false,
+    "description": "Smooth creamy cold coffee test item",
+    "isVeg": true,
+    "rating": 4.8,
+    "prepTime": "10 min",
+    "image": "/assets/images/drinks.png",
+    "inStock": true
+  },
+  {
+    "id": "hist-1",
+    "name": "7 Cheese Pizza",
+    "category": "pizzas",
+    "price": 139,
+    "mediumPrice": 299,
+    "description": "Blend of 7 exotic cheeses",
+    "image": "/assets/images/pizza.png"
+  },
+  {
+    "id": "hist-2",
+    "name": "Double Cheese Margherita Pizza",
+    "category": "pizzas",
+    "price": 139,
+    "mediumPrice": 299,
+    "description": "Loaded with Extra Cheese",
+    "image": "/assets/images/pizza.png"
+  },
+  {
+    "id": "hist-3",
+    "name": "Fresh Veggie Pizza",
+    "category": "pizzas",
+    "price": 139,
+    "mediumPrice": 299,
+    "description": "Onion, Green Capsicum, Fresh Tomato",
+    "image": "/assets/images/pizza.png"
+  },
+  {
+    "id": "hist-4",
+    "name": "Mexican Green Wave Pizza",
+    "category": "pizzas",
+    "price": 169,
+    "mediumPrice": 349,
+    "description": "Onion, Capsicum, Jalapeno & Mexican Herbs",
+    "image": "/assets/images/pizza.png"
+  },
+  {
+    "id": "hist-5",
+    "name": "Peppy Paneer Pizza",
+    "category": "pizzas",
+    "price": 169,
+    "mediumPrice": 349,
+    "description": "Juicy Paneer, Crisp Capsicum & Red Paprika",
+    "image": "/assets/images/pizza.png"
+  },
+  {
+    "id": "hist-6",
+    "name": "Farmhouse Special Pizza",
+    "category": "pizzas",
+    "price": 169,
+    "mediumPrice": 349,
+    "description": "Delightful combination of Onion, Capsicum, Tomato & Mushroom",
+    "image": "/assets/images/pizza.png"
+  },
+  {
+    "id": "hist-7",
+    "name": "Crispy Veg Classic Burger",
+    "category": "burgers",
+    "price": 69,
+    "description": "Crispy veg patty with fresh mayo",
+    "image": "/assets/images/burger.png"
+  },
+  {
+    "id": "hist-8",
+    "name": "Spicy Paneer Crunch Burger",
+    "category": "burgers",
+    "price": 109,
+    "description": "Crispy paneer patty with spicy schezwan sauce",
+    "image": "/assets/images/burger.png"
+  },
+  {
+    "id": "hist-9",
+    "name": "Cheese Loaded Club Sandwich",
+    "category": "sandwiches",
+    "price": 119,
+    "description": "3-layer club sandwich with double cheese",
+    "image": "/assets/images/sandwich.png"
+  },
+  {
+    "id": "hist-10",
+    "name": "Garlic Breadsticks with Dip",
+    "category": "garlic_breads",
+    "price": 99,
+    "description": "Baked garlic breadsticks with cheesy jalapeño dip",
+    "image": "/assets/images/fries.png"
+  },
+  {
+    "id": "hist-11",
+    "name": "Peri Peri Loaded Fries",
+    "category": "fries",
+    "price": 99,
+    "description": "Crispy french fries with spicy peri peri dip",
+    "image": "/assets/images/fries.png"
+  },
+  {
+    "id": "hist-12",
+    "name": "Cheesy White Sauce Alfredo Pasta",
+    "category": "pastas",
+    "price": 149,
+    "description": "Penne pasta in rich garlic cream sauce",
+    "image": "/assets/images/pasta.png"
+  },
+  {
+    "id": "hist-13",
+    "name": "Orange Citrus Special Frappe",
+    "category": "orange_drinks",
+    "price": 89,
+    "description": "Signature icy orange frappe",
+    "image": "/assets/images/drinks.png"
+  },
+  {
+    "id": "hist-14",
+    "name": "3 FOR 99* Special Combo Meal",
+    "category": "combos",
+    "price": 99,
+    "description": "1 Classic Burger + 1 Fries + 1 Beverage",
+    "image": "/assets/images/combo.png"
+  }
 ]

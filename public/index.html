@@ -130,6 +130,7 @@
 
       // Staff Gateway Phone Setting
       const [staffGatewayPhone, setStaffGatewayPhone] = useState('7623007043');
+      const [isOnlineDeliveryActive, setIsOnlineDeliveryActive] = useState(true);
       const [pastHistory, setPastHistory] = useState([]);
       const [selectedPastDate, setSelectedPastDate] = useState(null);
       const [selectedDateOrders, setSelectedDateOrders] = useState([]);
@@ -146,16 +147,19 @@
         return () => clearInterval(timer);
       }, []);
 
-      const getElapsedTime = (createdAt) => {
-        if (!createdAt) return { text: '0m 0s', status: 'green' };
-        const diffMs = Math.max(0, now - new Date(createdAt).getTime());
+      const getElapsedTime = (createdAt, orderStatus = 'pending', updatedAt = null) => {
+        if (!createdAt) return { text: '0m 0s', status: 'green', isStopped: false };
+        const isFinished = ['ready', 'completed', 'cancelled', 'rejected'].includes(orderStatus);
+        const startTime = new Date(createdAt).getTime();
+        const endTime = isFinished && updatedAt ? new Date(updatedAt).getTime() : (isFinished ? startTime : now);
+        const diffMs = Math.max(0, endTime - startTime);
         const totalSec = Math.floor(diffMs / 1000);
         const mins = Math.floor(totalSec / 60);
         const secs = totalSec % 60;
         let status = 'green';
         if (mins >= 10) status = 'red';
         else if (mins >= 5) status = 'amber';
-        return { text: `${mins}m ${secs}s`, status };
+        return { text: `${mins}m ${secs}s`, status, isStopped: isFinished };
       };
 
       const audioCtxRef = useRef(null);
@@ -233,18 +237,21 @@
         } catch (e) {}
       };
 
-      // Fetch Today's Orders & Reservations
+      // Fetch Today's Orders & Reservations & Delivery Status
       const fetchInitialData = async () => {
         try {
-          const [ordersRes, resRes] = await Promise.all([
+          const [ordersRes, resRes, delivRes] = await Promise.all([
             fetch('/api/orders'),
-            fetch('/api/reservations')
+            fetch('/api/reservations'),
+            fetch('/api/settings/delivery')
           ]);
           const ordersData = await ordersRes.json();
           const resData = await resRes.json();
+          const delivData = await delivRes.json();
 
           if (ordersData.success) setOrders(ordersData.orders || []);
           if (resData.success) setReservations(resData.reservations || []);
+          if (delivData.success) setIsOnlineDeliveryActive(delivData.onlineDelivery !== false);
         } catch (e) {}
         fetchMenuAndStock();
       };
@@ -297,6 +304,12 @@
 
             socket.on('stock:update', (updatedStock) => {
               setStockMap(updatedStock);
+            });
+
+            socket.on('delivery-status-changed', (data) => {
+              if (data && typeof data.onlineDelivery === 'boolean') {
+                setIsOnlineDeliveryActive(data.onlineDelivery);
+              }
             });
 
             socket.on('menu:update', (store) => {
@@ -656,6 +669,7 @@
         const orderPayload = {
           id: `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
           type: posOrderType,
+          isPosOrder: true,
           tableNumber: posOrderType === 'dine_in' ? Number(posTableNum) : null,
           customerName: posCustomerName.trim() || 'Walk-In Guest',
           phone: posPhone.trim(),
@@ -738,11 +752,13 @@
       const totalRevenue = orders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
 
       // Filtering orders by Type & Status
-      let displayedOrders = orders;
-      if (orderTypeFilter === 'dine_in') displayedOrders = dineInOrders;
-      if (orderTypeFilter === 'online') displayedOrders = onlineOrders;
+      let currentCategoryOrders = orders;
+      if (orderTypeFilter === 'dine_in') currentCategoryOrders = dineInOrders;
+      if (orderTypeFilter === 'online') currentCategoryOrders = onlineOrders;
+
+      let displayedOrders = currentCategoryOrders;
       if (statusFilter !== 'all') {
-        displayedOrders = displayedOrders.filter(o => o.status === statusFilter);
+        displayedOrders = currentCategoryOrders.filter(o => o.status === statusFilter);
       }
 
       return (
@@ -806,8 +822,30 @@
                 </button>
 
                 <button
+                  onClick={async () => {
+                    const nextState = !isOnlineDeliveryActive;
+                    setIsOnlineDeliveryActive(nextState);
+                    try {
+                      await fetch('/api/settings/delivery', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ onlineDelivery: nextState })
+                      });
+                    } catch(err) {}
+                  }}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-xs ${
+                    isOnlineDeliveryActive
+                      ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
+                      : 'bg-red-500 text-white border-red-600 hover:bg-red-600 animate-pulse'
+                  }`}
+                  title="Toggle Online Delivery Service ON/OFF for customer site"
+                >
+                  <span>🛵 Delivery: {isOnlineDeliveryActive ? 'ON' : 'OFF'}</span>
+                </button>
+
+                <button
                   onClick={() => setIsLoggedIn(false)}
-                  className="px-3 py-1.5 rounded-xl bg-red-500 text-white font-bold text-xs hover:bg-red-600 transition-all shadow-sm"
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 text-white font-bold text-xs hover:bg-slate-900 transition-all shadow-sm"
                 >
                   Logout
                 </button>
@@ -1453,11 +1491,11 @@
                 {/* Status Sub-Filters */}
                 <div className="flex gap-2 overflow-x-auto pb-2 border-b border-slate-200">
                   {[
-                    { id: 'all', label: `All Statuses (${displayedOrders.length})` },
-                    { id: 'pending', label: `🟡 Pending (${displayedOrders.filter(o => o.status === 'pending').length})` },
-                    { id: 'preparing', label: `🟠 Preparing (${displayedOrders.filter(o => o.status === 'preparing').length})` },
-                    { id: 'ready', label: `🟢 Ready (${displayedOrders.filter(o => o.status === 'ready').length})` },
-                    { id: 'completed', label: `⚪ Completed (${displayedOrders.filter(o => o.status === 'completed').length})` },
+                    { id: 'all', label: `All Statuses (${currentCategoryOrders.length})` },
+                    { id: 'pending', label: `🟡 Pending (${currentCategoryOrders.filter(o => o.status === 'pending').length})` },
+                    { id: 'preparing', label: `🟠 Preparing (${currentCategoryOrders.filter(o => o.status === 'preparing').length})` },
+                    { id: 'ready', label: `🟢 Ready (${currentCategoryOrders.filter(o => o.status === 'ready').length})` },
+                    { id: 'completed', label: `⚪ Completed (${currentCategoryOrders.filter(o => o.status === 'completed').length})` },
                   ].map(sub => (
                     <button
                       key={sub.id}
@@ -1572,16 +1610,17 @@
                         <div className="pt-3 border-t border-slate-100 space-y-2">
                           {/* Live Kitchen Preparation Timer */}
                           {(() => {
-                            const elapsed = getElapsedTime(order.createdAt);
+                            const elapsed = getElapsedTime(order.createdAt, order.status, order.updatedAt);
                             return (
                               <div className="flex justify-between items-center text-xs pb-1.5 border-b border-slate-100">
                                 <span className="text-slate-400 font-semibold">Kitchen Timer:</span>
                                 <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${
+                                  elapsed.isStopped ? 'bg-slate-100 text-slate-700 border-slate-300' :
                                   elapsed.status === 'green' ? 'bg-green-100 text-green-800 border-green-300' :
                                   elapsed.status === 'amber' ? 'bg-amber-100 text-amber-800 border-amber-300' :
                                   'bg-red-100 text-red-800 border-red-300 animate-pulse'
                                 }`}>
-                                  ⏱️ {elapsed.text}
+                                  ⏱️ {elapsed.text} {elapsed.isStopped ? '(Stopped)' : ''}
                                 </span>
                               </div>
                             );

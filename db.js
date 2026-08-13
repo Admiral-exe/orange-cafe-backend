@@ -217,10 +217,17 @@ const isOrderIdMatch = (order, targetId) => {
 export const getOrderById = async (orderId) => {
   if (!orderId) return null;
   const today = new Date().toISOString().split('T')[0];
-  let orders = readOrdersForDate(today);
+
+  // 1. Check today's production & test orders
+  let orders = readOrdersForDate(today, false);
   let found = orders.find(o => isOrderIdMatch(o, orderId));
   if (found) return found;
 
+  let testOrders = readOrdersForDate(today, true);
+  found = testOrders.find(o => isOrderIdMatch(o, orderId));
+  if (found) return found;
+
+  // 2. Check legacy root orders.json
   const rootPath = path.join(__dirname, 'orders.json');
   if (fs.existsSync(rootPath)) {
     try {
@@ -230,16 +237,20 @@ export const getOrderById = async (orderId) => {
     } catch (e) {}
   }
 
-  if (fs.existsSync(ordersDir)) {
-    const files = fs.readdirSync(ordersDir);
-    for (const file of files) {
-      if (file.startsWith('orders-') && file.endsWith('.json')) {
-        const filePath = path.join(ordersDir, file);
-        try {
-          const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
-          found = fileOrders.find(o => isOrderIdMatch(o, orderId));
-          if (found) return found;
-        } catch (e) {}
+  // 3. Check all historical files in ordersDir and testOrdersDir
+  const searchDirs = [ordersDir, testOrdersDir];
+  for (const targetDir of searchDirs) {
+    if (fs.existsSync(targetDir)) {
+      const files = fs.readdirSync(targetDir);
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const filePath = path.join(targetDir, file);
+          try {
+            const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
+            found = fileOrders.find(o => isOrderIdMatch(o, orderId));
+            if (found) return found;
+          } catch (e) {}
+        }
       }
     }
   }
@@ -250,39 +261,57 @@ export const getOrderById = async (orderId) => {
 export const updateOrderStatus = async (orderId, status, rejectionReason = '') => {
   if (!orderId) return null;
   const today = new Date().toISOString().split('T')[0];
-  let orders = readOrdersForDate(today);
-  const index = orders.findIndex(o => isOrderIdMatch(o, orderId));
 
+  // 1. Check today's production orders
+  let orders = readOrdersForDate(today, false);
+  let index = orders.findIndex(o => isOrderIdMatch(o, orderId));
   if (index !== -1) {
     orders[index].status = status;
     if (rejectionReason) {
       orders[index].rejectionReason = rejectionReason;
     }
     orders[index].updatedAt = new Date().toISOString();
-    writeOrdersForDate(today, orders);
+    writeOrdersForDate(today, orders, false);
     return orders[index];
   }
 
-  if (fs.existsSync(ordersDir)) {
-    const files = fs.readdirSync(ordersDir);
-    for (const file of files) {
-      if (file.startsWith('orders-') && file.endsWith('.json')) {
-        const filePath = path.join(ordersDir, file);
-        try {
-          const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
-          const idx = fileOrders.findIndex(o => isOrderIdMatch(o, orderId));
-          if (idx !== -1) {
-            fileOrders[idx].status = status;
-            if (rejectionReason) {
-              fileOrders[idx].rejectionReason = rejectionReason;
+  // 2. Check today's test orders
+  let testOrders = readOrdersForDate(today, true);
+  index = testOrders.findIndex(o => isOrderIdMatch(o, orderId));
+  if (index !== -1) {
+    testOrders[index].status = status;
+    if (rejectionReason) {
+      testOrders[index].rejectionReason = rejectionReason;
+    }
+    testOrders[index].updatedAt = new Date().toISOString();
+    writeOrdersForDate(today, testOrders, true);
+    return testOrders[index];
+  }
+
+  // 3. Check historical order files
+  const searchDirs = [ordersDir, testOrdersDir];
+  for (const targetDir of searchDirs) {
+    if (fs.existsSync(targetDir)) {
+      const files = fs.readdirSync(targetDir);
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const filePath = path.join(targetDir, file);
+          try {
+            const fileOrders = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
+            const idx = fileOrders.findIndex(o => isOrderIdMatch(o, orderId));
+            if (idx !== -1) {
+              fileOrders[idx].status = status;
+              if (rejectionReason) {
+                fileOrders[idx].rejectionReason = rejectionReason;
+              }
+              fileOrders[idx].updatedAt = new Date().toISOString();
+              const tempPath = filePath + '.tmp';
+              fs.writeFileSync(tempPath, JSON.stringify(fileOrders, null, 2), 'utf-8');
+              fs.renameSync(tempPath, filePath);
+              return fileOrders[idx];
             }
-            fileOrders[idx].updatedAt = new Date().toISOString();
-            const tempPath = filePath + '.tmp';
-            fs.writeFileSync(tempPath, JSON.stringify(fileOrders, null, 2), 'utf-8');
-            fs.renameSync(tempPath, filePath);
-            return fileOrders[idx];
-          }
-        } catch (e) {}
+          } catch (e) {}
+        }
       }
     }
   }
@@ -525,7 +554,8 @@ export const updateMenuStock = (itemId, inStock) => {
 export const getMaintenanceSettings = () => {
   const defaultSettings = {
     maintenance: false,
-    message: "This site is under maintenance, please come back later."
+    message: "This site is under maintenance, please come back later.",
+    onlineDelivery: true
   };
   if (fs.existsSync(settingsFilePath)) {
     try {

@@ -208,9 +208,35 @@ app.post('/api/settings/maintenance', (req, res) => {
 });
 
 
-// GET /api/settings - Fetch Staff Gateway Phone Number
+// GET /api/settings - Fetch Staff Gateway Phone Number & Online Delivery Status
 app.get('/api/settings', (req, res) => {
-  res.json({ success: true, staffPhone: staffGatewayPhone });
+  const settings = getMaintenanceSettings();
+  res.json({
+    success: true,
+    staffPhone: staffGatewayPhone,
+    onlineDelivery: settings.onlineDelivery !== false
+  });
+});
+
+// GET /api/settings/delivery - Fetch Online Delivery Service Toggle State
+app.get('/api/settings/delivery', (req, res) => {
+  const settings = getMaintenanceSettings();
+  res.json({
+    success: true,
+    onlineDelivery: settings.onlineDelivery !== false
+  });
+});
+
+// POST /api/settings/delivery - Toggle Online Delivery Service ON/OFF
+app.post('/api/settings/delivery', (req, res) => {
+  const { onlineDelivery } = req.body;
+  if (typeof onlineDelivery === 'boolean') {
+    const updated = updateMaintenanceSettings({ onlineDelivery });
+    io.emit('delivery-status-changed', { onlineDelivery: updated.onlineDelivery !== false });
+    console.log(`🛵 Online Delivery Service updated to: ${updated.onlineDelivery ? 'ENABLED (ON)' : 'DISABLED (OFF)'}`);
+    return res.json({ success: true, onlineDelivery: updated.onlineDelivery !== false });
+  }
+  res.status(400).json({ success: false, error: 'onlineDelivery boolean parameter required' });
 });
 
 // POST /api/settings - Save Staff Gateway Phone Number
@@ -291,6 +317,26 @@ app.get('/api/orders', async (req, res) => {
     res.json({ success: true, orders, isTest });
   } catch (error) {
     console.error('Error fetching today orders:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/orders/history - Get past order dates summary
+app.get('/api/orders/history', async (req, res) => {
+  try {
+    const history = await getPastOrdersHistory();
+    res.json({ success: true, history });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/orders/date/:dateStr - Get detailed orders for a specific past date
+app.get('/api/orders/date/:dateStr', async (req, res) => {
+  try {
+    const orders = await getOrdersByDate(req.params.dateStr);
+    res.json({ success: true, orders });
+  } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -377,19 +423,32 @@ app.post('/api/orders', async (req, res) => {
     const isTest = isDevTestAuthorized(req);
     const orderData = req.body || {};
 
-    // Strict Backend Security Verification for Dine-In Orders
-    if (orderData.type === 'dine_in') {
-      orderData.paymentMethod = 'Pay at Table';
-      orderData.paymentStatus = 'Pay at Table';
+    // Block online delivery orders if Online Delivery Service is toggled OFF by staff
+    if (orderData.type === 'online') {
+      const sysSettings = getMaintenanceSettings();
+      if (sysSettings.onlineDelivery === false) {
+        return res.status(400).json({
+          success: false,
+          error: 'Online delivery service is currently unavailable. This service will be available soon!'
+        });
+      }
+    }
 
-      if (!isTest) {
-        const secCheck = verifyDineInSecurity(orderData.tableNumber, orderData.tablePin, orderData.lat, orderData.lng);
-        if (!secCheck.valid) {
-          console.warn(`⚠️ Blocked Unauthorized Dine-In Order Attempt for Table #${orderData.tableNumber}: ${secCheck.reason}`);
-          return res.status(403).json({
-            success: false,
-            error: `Dine-In Security Check Failed: ${secCheck.reason}`
-          });
+    // Strict Backend Security Verification for Customer Dine-In Orders (Bypassed for Staff POS Register Orders)
+    if (orderData.type === 'dine_in') {
+      if (!orderData.isPosOrder) {
+        orderData.paymentMethod = 'Pay at Table';
+        orderData.paymentStatus = 'Pay at Table';
+
+        if (!isTest) {
+          const secCheck = verifyDineInSecurity(orderData.tableNumber, orderData.tablePin, orderData.lat, orderData.lng);
+          if (!secCheck.valid) {
+            console.warn(`⚠️ Blocked Unauthorized Dine-In Order Attempt for Table #${orderData.tableNumber}: ${secCheck.reason}`);
+            return res.status(403).json({
+              success: false,
+              error: `Dine-In Security Check Failed: ${secCheck.reason}`
+            });
+          }
         }
       }
     } else if (orderData.type === 'online') {
@@ -449,25 +508,7 @@ app.patch('/api/orders/:id/status', async (req, res) => {
 });
 
 
-// GET /api/orders/history - Get past order dates summary
-app.get('/api/orders/history', async (req, res) => {
-  try {
-    const history = await getPastOrdersHistory();
-    res.json({ success: true, history });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
-// GET /api/orders/date/:dateStr - Get detailed orders for a specific past date
-app.get('/api/orders/date/:dateStr', async (req, res) => {
-  try {
-    const orders = await getOrdersByDate(req.params.dateStr);
-    res.json({ success: true, orders });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 // Table Reservations Endpoints
 app.get('/api/reservations', async (req, res) => {

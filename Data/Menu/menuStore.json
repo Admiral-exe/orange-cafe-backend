@@ -1,15 +1,45 @@
 {
   "categories": [
-    { "id": "pizzas", "name": "🍕 Pizzas (BOGO Offer)" },
-    { "id": "burgers", "name": "🍔 Burgers" },
-    { "id": "sandwiches", "name": "🥪 Sandwiches" },
-    { "id": "garlic_breads", "name": "🧄 Garlic Breads" },
-    { "id": "fries", "name": "🍟 Fries" },
-    { "id": "pastas", "name": "🍝 Pastas" },
-    { "id": "frankies", "name": "🌯 Frankies" },
-    { "id": "orange_drinks", "name": "🍹 Orange Special Drinks" },
-    { "id": "shakes_coffee", "name": "🥤 Shakes & Coffee" },
-    { "id": "combos", "name": "🎁 Special Value Combos" }
+    {
+      "id": "pizzas",
+      "name": "🍕 Pizzas (BOGO Offer)"
+    },
+    {
+      "id": "burgers",
+      "name": "🍔 Burgers"
+    },
+    {
+      "id": "sandwiches",
+      "name": "🥪 Sandwiches"
+    },
+    {
+      "id": "garlic_breads",
+      "name": "🧄 Garlic Breads"
+    },
+    {
+      "id": "fries",
+      "name": "🍟 Fries"
+    },
+    {
+      "id": "pastas",
+      "name": "🍝 Pastas"
+    },
+    {
+      "id": "frankies",
+      "name": "🌯 Frankies"
+    },
+    {
+      "id": "orange_drinks",
+      "name": "🍹 Orange Special Drinks"
+    },
+    {
+      "id": "shakes_coffee",
+      "name": "🥤 Shakes & Coffee"
+    },
+    {
+      "id": "combos",
+      "name": "🎁 Special Value Combos"
+    }
   ],
   "items": [
     {
@@ -21,7 +51,16 @@
       "price": 139,
       "mediumPrice": 299,
       "hasSizes": true,
-      "sizes": [{ "size": "Regular", "price": 139 }, { "size": "Medium", "price": 299 }],
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 139
+        },
+        {
+          "size": "Medium",
+          "price": 299
+        }
+      ],
       "isBogoEligible": true,
       "description": "Loaded with Extra Cheese",
       "isVeg": true,
@@ -39,7 +78,16 @@
       "price": 139,
       "mediumPrice": 299,
       "hasSizes": true,
-      "sizes": [{ "size": "Regular", "price": 139 }, { "size": "Medium", "price": 299 }],
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 139
+        },
+        {
+          "size": "Medium",
+          "price": 299
+        }
+      ],
       "isBogoEligible": true,
       "description": "Crunchy Onion, Green Capsicum, Fresh Tomato",
       "isVeg": true,
@@ -57,7 +105,16 @@
       "price": 139,
       "mediumPrice": 299,
       "hasSizes": true,
-      "sizes": [{ "size": "Regular", "price": 139 }, { "size": "Medium", "price": 299 }],
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 139
+        },
+        {
+          "size": "Medium",
+          "price": 299
+        }
+      ],
       "isBogoEligible": true,
       "description": "Blend of 7 exotic cheeses",
       "isVeg": true,
@@ -75,7 +132,16 @@
       "price": 169,
       "mediumPrice": 349,
       "hasSizes": true,
-      "sizes": [{ "size": "Regular", "price": 169 }, { "size": "Medium", "price": 349 }],
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 169
+        },
+        {
+          "size": "Medium",
+          "price": 349
+        }
+      ],
       "isBogoEligible": true,
       "description": "Onion, Capsicum, Tomato, Jalapeno & Mexican Herbs",
       "isVeg": true,
@@ -149,7 +215,7 @@
       "isBogoEligible": false,
       "description": "Signature blended orange icy frappe with fresh mint",
       "isVeg": true,
-      "rating": 5.0,
+      "rating": 5,
       "prepTime": "5 min",
       "image": "/assets/images/drinks.png",
       "inStock": true
