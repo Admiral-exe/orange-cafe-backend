@@ -142,6 +142,10 @@ export const saveOrder = async (orderData, isTest = false) => {
     existingOrder.grandTotal = gt;
     existingOrder.updatedAt = new Date().toISOString();
     existingOrder.isTest = isTestFlag;
+    if (orderData.paymentMethod) existingOrder.paymentMethod = orderData.paymentMethod;
+    if (orderData.paymentStatus) existingOrder.paymentStatus = orderData.paymentStatus;
+    if (orderData.razorpayPaymentId) existingOrder.razorpayPaymentId = orderData.razorpayPaymentId;
+    if (orderData.razorpayOrderId) existingOrder.razorpayOrderId = orderData.razorpayOrderId;
     delete existingOrder.rejectionReason;
 
     writeOrdersForDate(today, orders, isTestFlag);
@@ -181,6 +185,9 @@ export const saveOrder = async (orderData, isTest = false) => {
     deliveryAddress: orderData.deliveryAddress || null,
     mapUrl: orderData.mapUrl || '',
     paymentMethod: orderData.paymentMethod || 'Cash (Paid)',
+    paymentStatus: orderData.paymentStatus || (orderData.paymentMethod === 'Cash on Delivery' ? 'Pending - Cash on Delivery' : 'Paid'),
+    razorpayPaymentId: orderData.razorpayPaymentId || null,
+    razorpayOrderId: orderData.razorpayOrderId || null,
     items: items,
     subtotal: sub,
     bogoDiscount: bogo,

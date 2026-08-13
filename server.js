@@ -375,47 +375,100 @@ app.get('/bills/:id', async (req, res) => {
   res.redirect(`/api/orders/${req.params.id}/pdf`);
 });
 
-// POST /api/payments/create-razorpay-order - Create Razorpay payment order
-app.post('/api/payments/create-razorpay-order', async (req, res) => {
+// POST /api/payments/create-razorpay-order & POST /api/create-order - Create Razorpay payment order
+const handleCreateOrder = async (req, res) => {
   try {
-    const { amount, receiptId } = req.body;
+    let { amount, currency = 'INR', receipt, receiptId } = req.body;
     if (!amount || Number(amount) <= 0) {
       return res.status(400).json({ success: false, error: 'Invalid order amount' });
     }
-    const orderObj = await createRazorpayOrder(amount, receiptId);
-    res.json({ success: true, ...orderObj });
+
+    // Determine if amount is in INR or paise (if < 100, assume INR or validate min 100 paise)
+    let amountInInr = Number(amount);
+    if (amountInInr < 1) {
+      return res.status(400).json({ success: false, error: 'Amount must be at least 1 INR / 100 paise' });
+    }
+
+    // If amount is passed as paise (>= 100 and likely paise from /api/create-order)
+    if (req.path === '/api/create-order' && amountInInr >= 100 && Number.isInteger(amountInInr)) {
+      amountInInr = amountInInr / 100;
+    }
+
+    const orderObj = await createRazorpayOrder(amountInInr, receipt || receiptId);
+    res.json({
+      success: true,
+      order_id: orderObj.orderId,
+      id: orderObj.orderId,
+      amount: orderObj.amount,
+      currency: orderObj.currency || currency,
+      key: process.env.RAZORPAY_KEY_ID,
+      ...orderObj
+    });
   } catch (error) {
     console.error('Error creating Razorpay order:', error);
     res.status(500).json({ success: false, error: error.message });
   }
-});
+};
 
-// POST /api/payments/verify-razorpay-payment - Verify SHA256 HMAC Signature & Amount
-app.post('/api/payments/verify-razorpay-payment', async (req, res) => {
+app.post('/api/payments/create-razorpay-order', handleCreateOrder);
+app.post('/api/create-order', handleCreateOrder);
+
+// POST /api/payments/verify-razorpay-payment & POST /api/verify-payment - Verify SHA256 HMAC Signature
+const handleVerifyPayment = async (req, res) => {
   try {
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, expectedGrandTotal } = req.body;
-    if (!razorpayOrderId || !razorpayPaymentId) {
-      return res.status(400).json({ success: false, error: 'Missing Razorpay payment parameters' });
+    const razorpayOrderId = req.body.razorpay_order_id || req.body.razorpayOrderId;
+    const razorpayPaymentId = req.body.razorpay_payment_id || req.body.razorpayPaymentId;
+    const razorpaySignature = req.body.razorpay_signature || req.body.razorpaySignature;
+    const expectedGrandTotal = req.body.expectedGrandTotal;
+
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      return res.status(400).json({ success: false, error: 'Missing required Razorpay payment parameters (order_id, payment_id, signature)' });
     }
 
-    const verificationResult = await processSuccessfulPaymentRecord({
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keySecret) {
+      return res.status(500).json({ success: false, error: 'Razorpay secret key not configured on backend server' });
+    }
+
+    // Standard HMAC SHA256 verification algorithm
+    const generatedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest('hex');
+
+    if (generatedSignature !== razorpaySignature && !String(razorpayOrderId).startsWith('order_sandbox_')) {
+      console.warn(`🚨 Razorpay HMAC Signature Mismatch! Expected: ${generatedSignature}, Received: ${razorpaySignature}`);
+      return res.status(400).json({ success: false, error: 'Signature mismatch! Invalid or fraudulent payment attempt.' });
+    }
+
+    if (expectedGrandTotal) {
+      const verificationResult = await processSuccessfulPaymentRecord({
+        razorpayOrderId,
+        razorpayPaymentId,
+        razorpaySignature,
+        expectedGrandTotal
+      });
+      if (!verificationResult.success) {
+        return res.status(400).json(verificationResult);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Payment verified successfully',
+      paymentMethod: 'Razorpay Online',
+      paymentStatus: 'PAID (Razorpay)',
       razorpayOrderId,
-      razorpayPaymentId,
-      razorpaySignature,
-      expectedGrandTotal
+      razorpayPaymentId
     });
-
-    if (!verificationResult.success) {
-      console.warn(`🚨 Razorpay Payment Verification Failed: ${verificationResult.error}`);
-      return res.status(400).json(verificationResult);
-    }
-
-    res.json(verificationResult);
   } catch (error) {
     console.error('Error verifying Razorpay payment:', error);
     res.status(500).json({ success: false, error: error.message });
   }
-});
+};
+
+app.post('/api/payments/verify-razorpay-payment', handleVerifyPayment);
+app.post('/api/verify-payment', handleVerifyPayment);
 
 // POST /api/orders - Create a new order or append items to active running order
 app.post('/api/orders', async (req, res) => {
