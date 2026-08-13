@@ -64,9 +64,15 @@
       "isBogoEligible": true,
       "description": "Loaded with Extra Cheese",
       "isVeg": true,
+      "isChefSpecial": false,
       "rating": 4.9,
       "prepTime": "12 min",
       "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "PREMIUM PIZZA",
+        "Extra Cheese"
+      ],
       "inStock": true
     },
     {
@@ -91,14 +97,20 @@
       "isBogoEligible": true,
       "description": "Crunchy Onion, Green Capsicum, Fresh Tomato",
       "isVeg": true,
+      "isChefSpecial": false,
       "rating": 4.8,
       "prepTime": "12 min",
       "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "PREMIUM PIZZA",
+        "Fresh Veggie"
+      ],
       "inStock": true
     },
     {
-      "id": "pizza-7-cheese",
-      "name": "7 Cheese Pizza",
+      "id": "pizza-lovers-bite",
+      "name": "Lovers Bite Pizza",
       "category": "pizzas",
       "bogoCategory": "PREMIUM_PIZZA",
       "bogoCategoryName": "PREMIUM PIZZA",
@@ -116,122 +128,1021 @@
         }
       ],
       "isBogoEligible": true,
-      "description": "Blend of 7 exotic cheeses",
+      "description": "Mushroom, Black Olives, Golden Corn",
       "isVeg": true,
+      "isChefSpecial": true,
       "rating": 4.9,
-      "prepTime": "14 min",
+      "prepTime": "12 min",
       "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "PREMIUM PIZZA",
+        "Lovers Choice"
+      ],
       "inStock": true
     },
     {
-      "id": "pizza-mexican-green-wave",
-      "name": "Mexican Green Wave Pizza",
+      "id": "pizza-cheese-jalapeno",
+      "name": "Cheese Jalapeno Pizza",
       "category": "pizzas",
-      "bogoCategory": "EXOTIC_PIZZA",
-      "bogoCategoryName": "EXOTIC PIZZA",
-      "price": 169,
-      "mediumPrice": 349,
+      "bogoCategory": "PREMIUM_PIZZA",
+      "bogoCategoryName": "PREMIUM PIZZA",
+      "price": 139,
+      "mediumPrice": 299,
       "hasSizes": true,
       "sizes": [
         {
           "size": "Regular",
-          "price": 169
+          "price": 139
         },
         {
           "size": "Medium",
-          "price": 349
+          "price": 299
         }
       ],
       "isBogoEligible": true,
-      "description": "Onion, Capsicum, Tomato, Jalapeno & Mexican Herbs",
+      "description": "Golden Corn, Jalapeno Slice",
       "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.7,
+      "prepTime": "12 min",
+      "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "PREMIUM PIZZA",
+        "Cheese & Jalapeno"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "pizza-farm-fresh",
+      "name": "Farm Fresh Pizza",
+      "category": "pizzas",
+      "bogoCategory": "HOT_ORANGE_SELLER",
+      "bogoCategoryName": "HOT ORANGE SELLER",
+      "price": 179,
+      "mediumPrice": 359,
+      "hasSizes": true,
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 179
+        },
+        {
+          "size": "Medium",
+          "price": 359
+        }
+      ],
+      "isBogoEligible": true,
+      "description": "Fresh Tomato, Green Capsicum, Red Paprika, Exotic Paneer with Mozzarella Cheese",
+      "isVeg": true,
+      "isChefSpecial": false,
       "rating": 4.8,
       "prepTime": "15 min",
       "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "HOT ORANGE SELLER",
+        "Farm Fresh"
+      ],
       "inStock": true
     },
     {
-      "id": "burger-crispy-veg-classic",
-      "name": "Crispy Veg Classic Burger",
-      "category": "burgers",
-      "price": 69,
-      "hasSizes": false,
-      "isBogoEligible": false,
-      "description": "Crispy veg patty with fresh mayo & lettuce",
+      "id": "pizza-peppy-paneer",
+      "name": "Peppy Paneer Pizza",
+      "category": "pizzas",
+      "bogoCategory": "HOT_ORANGE_SELLER",
+      "bogoCategoryName": "HOT ORANGE SELLER",
+      "price": 179,
+      "mediumPrice": 359,
+      "hasSizes": true,
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 179
+        },
+        {
+          "size": "Medium",
+          "price": 359
+        }
+      ],
+      "isBogoEligible": true,
+      "description": "Red Paprika, Green Capsicum, Exotic Paneer",
       "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 4.9,
+      "prepTime": "15 min",
+      "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "HOT ORANGE SELLER",
+        "Peppy Paneer"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "pizza-tandoori-paneer",
+      "name": "Tandoori Paneer Pizza",
+      "category": "pizzas",
+      "bogoCategory": "HOT_ORANGE_SELLER",
+      "bogoCategoryName": "HOT ORANGE SELLER",
+      "price": 179,
+      "mediumPrice": 359,
+      "hasSizes": true,
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 179
+        },
+        {
+          "size": "Medium",
+          "price": 359
+        }
+      ],
+      "isBogoEligible": true,
+      "description": "Exotic Paneer, Green Capsicum, Onion, Red Paprika with Tandoori Sauce",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "15 min",
+      "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "HOT ORANGE SELLER",
+        "Tandoori"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "pizza-cheese-lovers",
+      "name": "Cheese Lovers Pizza",
+      "category": "pizzas",
+      "bogoCategory": "HOT_ORANGE_SELLER",
+      "bogoCategoryName": "HOT ORANGE SELLER",
+      "price": 179,
+      "mediumPrice": 359,
+      "hasSizes": true,
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 179
+        },
+        {
+          "size": "Medium",
+          "price": 359
+        }
+      ],
+      "isBogoEligible": true,
+      "description": "Crunchy Onion, Green Capsicum, Golden Corn, Mushroom, Exotic Paneer with Cheese Sauce & Jalapeno Sauce on top",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 5,
+      "prepTime": "15 min",
+      "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "HOT ORANGE SELLER",
+        "Cheese Lovers"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "pizza-paneer-butter-masala",
+      "name": "Paneer Butter Masala",
+      "category": "pizzas",
+      "bogoCategory": "HOT_ORANGE_SELLER",
+      "bogoCategoryName": "HOT ORANGE SELLER",
+      "price": 179,
+      "mediumPrice": 359,
+      "hasSizes": true,
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 179
+        },
+        {
+          "size": "Medium",
+          "price": 359
+        }
+      ],
+      "isBogoEligible": true,
+      "description": "Crunchy Onion, Green Capsicum, Red Paprika, Exotic Makhani Paneer, Makhani Sauce",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "15 min",
+      "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "HOT ORANGE SELLER",
+        "Makhani Paneer"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "pizza-peri-peri",
+      "name": "Peri Peri Pizza",
+      "category": "pizzas",
+      "bogoCategory": "HOT_ORANGE_SELLER",
+      "bogoCategoryName": "HOT ORANGE SELLER",
+      "price": 179,
+      "mediumPrice": 359,
+      "hasSizes": true,
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 179
+        },
+        {
+          "size": "Medium",
+          "price": 359
+        }
+      ],
+      "isBogoEligible": true,
+      "description": "Jalapeno Slice, Red Paprika, Green Capsicum, Golden Corn & Mushroom, Peri Peri Seasoning, Peri Peri Sauce",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "15 min",
+      "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "HOT ORANGE SELLER",
+        "Spicy Peri Peri"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "pizza-chilli-paneer",
+      "name": "Chilli Paneer Pizza",
+      "category": "pizzas",
+      "bogoCategory": "HOT_ORANGE_SELLER",
+      "bogoCategoryName": "HOT ORANGE SELLER",
+      "price": 179,
+      "mediumPrice": 359,
+      "hasSizes": true,
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 179
+        },
+        {
+          "size": "Medium",
+          "price": 359
+        }
+      ],
+      "isBogoEligible": true,
+      "description": "Crunchy Onion, Green Capsicum, Jalapeno Slice, Golden Corn, Exotic Paneer with Garlic Chilli Sauce",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 4.9,
+      "prepTime": "15 min",
+      "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "HOT ORANGE SELLER",
+        "Chilli Garlic"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "pizza-orange-special",
+      "name": "Orange Special Pizza",
+      "category": "pizzas",
+      "bogoCategory": "HOT_ORANGE_SELLER",
+      "bogoCategoryName": "HOT ORANGE SELLER",
+      "price": 179,
+      "mediumPrice": 359,
+      "hasSizes": true,
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 179
+        },
+        {
+          "size": "Medium",
+          "price": 359
+        }
+      ],
+      "isBogoEligible": true,
+      "description": "Black Olives, Green Capsicum, Golden Corn, Crunchy Onion, Exotic Paneer, Fresh Tomato, Mushroom, Jalapeno Slice with Extra Cheese",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 5,
+      "prepTime": "15 min",
+      "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "HOT ORANGE SELLER",
+        "Orange Special"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "pizza-7-cheese",
+      "name": "7 Cheese Pizza",
+      "category": "pizzas",
+      "bogoCategory": "HOT_ORANGE_SELLER",
+      "bogoCategoryName": "HOT ORANGE SELLER",
+      "price": 179,
+      "mediumPrice": 359,
+      "hasSizes": true,
+      "sizes": [
+        {
+          "size": "Regular",
+          "price": 179
+        },
+        {
+          "size": "Medium",
+          "price": 359
+        }
+      ],
+      "isBogoEligible": true,
+      "description": "Orange Cream Cheese, Mozzarella, Cheddar, Monterey Jack, Colby, Orange Cheddar & White Cream Cheese",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 5,
+      "prepTime": "15 min",
+      "image": "/assets/images/pizza.png",
+      "tags": [
+        "BOGO Offer",
+        "HOT ORANGE SELLER",
+        "7 Cheese"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "b1",
+      "name": "Orange Special Burger",
+      "category": "burgers",
+      "price": 149,
+      "description": "Chef signature burger loaded with double crispy tikki, melted cheese slice, special orange dip, and jalapenos.",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 5,
+      "prepTime": "10 min",
+      "image": "/assets/images/burger.png",
+      "tags": [
+        "Bestseller",
+        "Orange Special"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "b2",
+      "name": "American Burger",
+      "category": "burgers",
+      "price": 129,
+      "description": "Loaded American style veggie burger with smoked BBQ sauce, double cheese, caramelized onions & gherkins.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "8 min",
+      "image": "/assets/images/burger.png",
+      "tags": [
+        "Loaded",
+        "BBQ"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "b3",
+      "name": "Tandoori Burger",
+      "category": "burgers",
+      "price": 129,
+      "description": "Crispy vegetable patty infused with Indian tandoori spices and spicy tandoori mayo.",
+      "isVeg": true,
+      "isChefSpecial": false,
       "rating": 4.7,
       "prepTime": "8 min",
       "image": "/assets/images/burger.png",
+      "tags": [
+        "Tandoori Flavor"
+      ],
       "inStock": true
     },
     {
-      "id": "burger-spicy-paneer-crunch",
-      "name": "Spicy Paneer Crunch Burger",
+      "id": "b4",
+      "name": "Mexicano Burger",
       "category": "burgers",
       "price": 109,
-      "hasSizes": false,
-      "isBogoEligible": false,
-      "description": "Crispy paneer patty with spicy schezwan sauce",
+      "description": "Zesty Mexican bean patty topped with salsa, jalapeno slices, and nacho cheese sauce.",
       "isVeg": true,
-      "rating": 4.9,
-      "prepTime": "10 min",
+      "isChefSpecial": false,
+      "rating": 4.7,
+      "prepTime": "8 min",
       "image": "/assets/images/burger.png",
+      "tags": [
+        "Mexicano"
+      ],
       "inStock": true
     },
     {
-      "id": "fries-peri-peri-loaded",
-      "name": "Peri Peri Loaded Fries",
-      "category": "fries",
-      "price": 99,
-      "hasSizes": false,
-      "isBogoEligible": false,
-      "description": "Crispy french fries tossed in spicy peri-peri seasoning with cheese dip",
+      "id": "b5",
+      "name": "Cheese Chilli Burger",
+      "category": "burgers",
+      "price": 69,
+      "description": "Crispy patty loaded with green chilli garlic spread and melted cheddar cheese.",
       "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.6,
+      "prepTime": "7 min",
+      "image": "/assets/images/burger.png",
+      "tags": [
+        "Spicy Chilli"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "b6",
+      "name": "Schezwan Burger",
+      "category": "burgers",
+      "price": 69,
+      "description": "Crispy Tikki burger spiked with bold hot Schezwan sauce and fresh crunchy cabbage slaw.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.6,
+      "prepTime": "7 min",
+      "image": "/assets/images/burger.png",
+      "tags": [
+        "Schezwan"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "b7",
+      "name": "Cheese Veg Burger",
+      "category": "burgers",
+      "price": 59,
+      "description": "Classic vegetable tikki burger topped with a thick slice of processed cheese.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.6,
+      "prepTime": "6 min",
+      "image": "/assets/images/burger.png",
+      "tags": [
+        "Classic Cheese"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "b8",
+      "name": "Aloo Tikki Burger",
+      "category": "burgers",
+      "price": 49,
+      "description": "Golden fried crispy Aloo Tikki in soft sesame bun with house sauce & onions.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "5 min",
+      "image": "/assets/images/burger.png",
+      "tags": [
+        "Value Deal",
+        "Crispy"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "s1",
+      "name": "Orange Special Sandwich",
+      "category": "sandwiches",
+      "price": 199,
+      "description": "Triple-decker grilled gourmet sandwich stuffed with Paneer, golden corn, jalapenos, and signature Orange cheese blend.",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 5,
+      "prepTime": "12 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Bestseller",
+        "Triple Layer"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "s2",
+      "name": "Club Sandwich",
+      "category": "sandwiches",
+      "price": 209,
+      "description": "Classic multi-layered jumbo club sandwich loaded with fresh veggies, paneer cubes, and extra cheese.",
+      "isVeg": true,
+      "isChefSpecial": false,
       "rating": 4.9,
+      "prepTime": "12 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Jumbo Club"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "s3",
+      "name": "Mexicano Spicy Sandwich",
+      "category": "sandwiches",
+      "price": 199,
+      "description": "Grilled sandwich layered with Mexican salsa, jalapeno slices, corn, and spicy peri peri cheese spread.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "10 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Mexicano"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "s4",
+      "name": "Paneer Chilly Garlic Sandwich",
+      "category": "sandwiches",
+      "price": 159,
+      "description": "Fresh cottage cheese cubes tossed in spicy chilli garlic sauce, stuffed in butter-grilled bread.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "10 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Chilly Garlic"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "s5",
+      "name": "Cheese Chilly Corn Sandwich",
+      "category": "sandwiches",
+      "price": 159,
+      "description": "Sweet golden corn and crushed green chillies baked with rich melted cheese.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.7,
+      "prepTime": "8 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Sweet & Spicy"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "s8",
+      "name": "Bombay Sandwich (Non Grill)",
+      "category": "sandwiches",
+      "price": 99,
+      "description": "Fresh white bread slices layered with butter, green mint chutney, boiled potatoes, cucumber & chaat masala.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.6,
+      "prepTime": "5 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Street Style"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "s9",
+      "name": "Cheese Butter Sandwich (Non Grill)",
+      "category": "sandwiches",
+      "price": 69,
+      "description": "Soft sliced bread filled with generous Amul butter and processed cheese.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.5,
+      "prepTime": "5 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Simple Classic"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "g1",
+      "name": "Corn Chilly Garlic Bread Stick",
+      "category": "garlic_breads",
+      "price": 129,
+      "description": "Toasted oven-baked garlic bread sticks topped with sweet corn, jalapenos & melted mozzarella.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "10 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Garlic Bread",
+        "Corn & Chilly"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "g2",
+      "name": "Cheese Garlic Bread Stick",
+      "category": "garlic_breads",
+      "price": 99,
+      "description": "Crispy garlic bread sticks brushed with herb garlic butter and topped with bubbling cheese.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "8 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Garlic Bread",
+        "Melted Cheese"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "f1",
+      "name": "Mexicana Fries",
+      "category": "fries",
+      "price": 129,
+      "description": "Crispy French Fries loaded with Jalapeno Slices, Golden Corn, Red Paprika & Mexican cheese sauce.",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 4.9,
+      "prepTime": "8 min",
+      "image": "/assets/images/fries.png",
+      "tags": [
+        "Loaded Fries",
+        "Mexicana"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "f2",
+      "name": "Cheezy Fries",
+      "category": "fries",
+      "price": 129,
+      "description": "Golden fries smothered in hot liquid cheddar cheese sauce and herbs.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
       "prepTime": "7 min",
       "image": "/assets/images/fries.png",
+      "tags": [
+        "Cheezy"
+      ],
       "inStock": true
     },
     {
-      "id": "pasta-cheesy-white-sauce",
-      "name": "Cheesy White Sauce Alfredo Pasta",
-      "category": "pastas",
-      "price": 149,
-      "hasSizes": false,
-      "isBogoEligible": false,
-      "description": "Penne pasta in rich garlic cream cheese sauce",
+      "id": "f7",
+      "name": "Peri Peri Fries",
+      "category": "fries",
+      "price": 99,
+      "description": "Crispy salted fries tossed in fiery Peri Peri spice mix.",
       "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "6 min",
+      "image": "/assets/images/fries.png",
+      "tags": [
+        "Peri Peri"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "f9",
+      "name": "Salted Fries",
+      "category": "fries",
+      "price": 79,
+      "description": "Classic golden potato fries lightly seasoned with sea salt.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.6,
+      "prepTime": "5 min",
+      "image": "/assets/images/fries.png",
+      "tags": [
+        "Classic Fries"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "f3",
+      "name": "Italiano Orange Pasta",
+      "category": "pastas",
+      "price": 129,
+      "description": "Penne pasta tossed in Orange Cafe signature pink orange sauce with Onion, Capsicum, Golden Corn & Jalapeno Slices.",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 4.9,
+      "prepTime": "12 min",
+      "image": "/assets/images/pasta.png",
+      "tags": [
+        "Orange Signature",
+        "Italiano"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "f4",
+      "name": "Pasta Lover White",
+      "category": "pastas",
+      "price": 129,
+      "description": "Rich creamy white Alfredo penne pasta with Onion, Capsicum, Golden Corn & Black Olives.",
+      "isVeg": true,
+      "isChefSpecial": false,
       "rating": 4.8,
       "prepTime": "12 min",
       "image": "/assets/images/pasta.png",
+      "tags": [
+        "Creamy White"
+      ],
       "inStock": true
     },
     {
-      "id": "drink-orange-citrus-frappe",
-      "name": "Orange Citrus Special Frappe",
-      "category": "orange_drinks",
-      "price": 89,
-      "hasSizes": false,
-      "isBogoEligible": false,
-      "description": "Signature blended orange icy frappe with fresh mint",
+      "id": "f5",
+      "name": "Mexicana Pasta",
+      "category": "pastas",
+      "price": 129,
+      "description": "Tangy red arrabbiata pasta with Onion, Capsicum, Black Olives & Mushrooms.",
       "isVeg": true,
-      "rating": 5,
-      "prepTime": "5 min",
-      "image": "/assets/images/drinks.png",
+      "isChefSpecial": false,
+      "rating": 4.7,
+      "prepTime": "12 min",
+      "image": "/assets/images/pasta.png",
+      "tags": [
+        "Red Sauce"
+      ],
       "inStock": true
     },
     {
-      "id": "combo-3-for-99",
-      "name": "3 FOR 99* Special Combo Meal",
+      "id": "f6",
+      "name": "Tandoori Cheese Frankie",
+      "category": "frankies",
+      "price": 119,
+      "description": "Warm tortilla roll packed with spicy potato filling, tandoori sauce, and melted cheese.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "8 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Tandoori Frankie"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "f8",
+      "name": "Veg. Cheese Frankie",
+      "category": "frankies",
+      "price": 99,
+      "description": "Classic Frankie roll stuffed with spicy veggie filling and grated cheese.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.7,
+      "prepTime": "7 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Cheese Frankie"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "f10",
+      "name": "Veg. Frankie",
+      "category": "frankies",
+      "price": 69,
+      "description": "Street-style veggie roll with spiced potato filling, onions, and chat masala.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.6,
+      "prepTime": "6 min",
+      "image": "/assets/images/sandwich.png",
+      "tags": [
+        "Classic Frankie"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "d1",
+      "name": "Mint Mojito",
+      "category": "orange_drinks",
+      "price": 59,
+      "description": "Orange Special Drink: Chilled sparkling lime mocktail muddled with fresh mint leaves & crushed ice.",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 4.9,
+      "prepTime": "3 min",
+      "image": "/assets/images/drinks.png",
+      "tags": [
+        "Orange Special Drink",
+        "Mojito"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "d2",
+      "name": "Jamun & Kala Khatta",
+      "category": "orange_drinks",
+      "price": 59,
+      "description": "Orange Special Drink: Nostalgic tangy black plum syrup with black salt and lemon fizz.",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 4.9,
+      "prepTime": "3 min",
+      "image": "/assets/images/drinks.png",
+      "tags": [
+        "Orange Special Drink",
+        "Tangy"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "d3",
+      "name": "Spicy Mango",
+      "category": "orange_drinks",
+      "price": 59,
+      "description": "Orange Special Drink: Mango cooler spiced with a pinch of red chilli & chat masala.",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 4.8,
+      "prepTime": "3 min",
+      "image": "/assets/images/drinks.png",
+      "tags": [
+        "Orange Special Drink",
+        "Spicy"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "d4",
+      "name": "Kit Kat Shake",
+      "category": "shakes_coffee",
+      "price": 79,
+      "description": "Thick milk shake blended with crunchy KitKat bars and chocolate fudge sauce.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.9,
+      "prepTime": "4 min",
+      "image": "/assets/images/drinks.png",
+      "tags": [
+        "Thick Shake",
+        "KitKat"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "d5",
+      "name": "Paan Shake",
+      "category": "shakes_coffee",
+      "price": 79,
+      "description": "Refreshing aromatic shake made with real Meetha Paan leaves and gulkand.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "4 min",
+      "image": "/assets/images/drinks.png",
+      "tags": [
+        "Special Flavor",
+        "Paan"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "d6",
+      "name": "Cold Coco",
+      "category": "shakes_coffee",
+      "price": 59,
+      "description": "Thick Surat-style dark chocolate cold cocoa drink topped with chocolate chips.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.9,
+      "prepTime": "3 min",
+      "image": "/assets/images/drinks.png",
+      "tags": [
+        "Cold Coco",
+        "Chocolate"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "d7",
+      "name": "Oreo Shake",
+      "category": "shakes_coffee",
+      "price": 59,
+      "description": "Classic creamy shake blended with crushed Oreo cookies.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "4 min",
+      "image": "/assets/images/drinks.png",
+      "tags": [
+        "Oreo"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "d8",
+      "name": "Mango Shake",
+      "category": "shakes_coffee",
+      "price": 49,
+      "description": "Sweet Alphonso mango pulp blended with cold milk.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.7,
+      "prepTime": "3 min",
+      "image": "/assets/images/drinks.png",
+      "tags": [
+        "Fresh Mango"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "d9",
+      "name": "Cold Coffee",
+      "category": "shakes_coffee",
+      "price": 39,
+      "description": "Classic chilled coffee whipped with ice cream & cocoa powder.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "3 min",
+      "image": "/assets/images/drinks.png",
+      "tags": [
+        "Cold Coffee",
+        "Best Value"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "c1",
+      "name": "Combo 1 (Burger + Drink)",
+      "category": "combos",
+      "price": 69,
+      "description": "Aloo Tikki Burger + 250 ml Coke.",
+      "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.8,
+      "prepTime": "7 min",
+      "image": "/assets/images/combo.png",
+      "tags": [
+        "Value Combo",
+        "Super Saver"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "c2",
+      "name": "Combo 2 (Burger + Cold Coco)",
       "category": "combos",
       "price": 99,
-      "hasSizes": false,
-      "isBogoEligible": false,
-      "description": "1 Classic Veg Burger + 1 Small Fries + 1 Cold Beverage",
+      "description": "Classic Veg. Burger + Thick Cold Coco.",
       "isVeg": true,
+      "isChefSpecial": false,
+      "rating": 4.9,
+      "prepTime": "8 min",
+      "image": "/assets/images/combo.png",
+      "tags": [
+        "Popular Combo"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "c3",
+      "name": "Combo 3 (Meal Combo)",
+      "category": "combos",
+      "price": 129,
+      "description": "Cheese Chilly Burger + Salted Fries + Coke 250 ml.",
+      "isVeg": true,
+      "isChefSpecial": false,
       "rating": 4.9,
       "prepTime": "10 min",
       "image": "/assets/images/combo.png",
+      "tags": [
+        "Full Meal"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "c4",
+      "name": "Combo 4 (Sandwich Feast)",
+      "category": "combos",
+      "price": 249,
+      "description": "Paneer Chilly Sandwich + Salted Fries + Any One Orange Special Drink (Mint Mojito / Jamun / Spicy Mango).",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 5,
+      "prepTime": "12 min",
+      "image": "/assets/images/combo.png",
+      "tags": [
+        "Sandwich Combo",
+        "Chef Choice"
+      ],
+      "inStock": true
+    },
+    {
+      "id": "c5",
+      "name": "Combo 5 (Pizza & Garlic Bread Feast)",
+      "category": "combos",
+      "price": 299,
+      "description": "Cheese Garlic Bread Stick + Any One Pizza (Hot Orange Seller) + Any One Orange Special Drink.",
+      "isVeg": true,
+      "isChefSpecial": true,
+      "rating": 5,
+      "prepTime": "15 min",
+      "image": "/assets/images/combo.png",
+      "tags": [
+        "Ultimate Combo",
+        "Pizza Party"
+      ],
       "inStock": true
     }
   ]

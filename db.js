@@ -131,14 +131,16 @@ export const saveOrder = async (orderData, isTest = false) => {
     for (let f = 0; f < freeCount; f++) bogoDiscount += bogoPrices[f];
 
     const afterDiscount = Math.max(0, sub - bogoDiscount);
-    const sc = Math.round(afterDiscount * 0.025 * 100) / 100;
-    const gt = Math.round((afterDiscount + (sc * 2)) * 100) / 100;
+    const isOnlineExisting = (existingOrder.type === 'online') && !orderData.isPosOrder;
+    const sc = isOnlineExisting ? Math.round(afterDiscount * 0.025 * 100) / 100 : 0;
+    const tax = isOnlineExisting ? sc : 0;
+    const gt = Math.round((afterDiscount + sc + tax) * 100) / 100;
 
     existingOrder.items = combinedItems;
     existingOrder.subtotal = sub;
     existingOrder.bogoDiscount = bogoDiscount;
     existingOrder.serviceCharge = sc;
-    existingOrder.taxes = sc;
+    existingOrder.taxes = tax;
     existingOrder.grandTotal = gt;
     existingOrder.updatedAt = new Date().toISOString();
     existingOrder.isTest = isTestFlag;
@@ -172,8 +174,10 @@ export const saveOrder = async (orderData, isTest = false) => {
   for (let f = 0; f < fc; f++) bogo += bp[f];
 
   const ad = Math.max(0, sub - bogo);
-  const sc = Math.round(ad * 0.025 * 100) / 100;
-  const gt = Math.round((ad + (sc * 2)) * 100) / 100;
+  const isOnlineNew = (orderData.type === 'online') && !orderData.isPosOrder;
+  const sc = isOnlineNew ? Math.round(ad * 0.025 * 100) / 100 : 0;
+  const tax = isOnlineNew ? sc : 0;
+  const gt = Math.round((ad + sc + tax) * 100) / 100;
 
   const newOrder = {
     id: orderId,
