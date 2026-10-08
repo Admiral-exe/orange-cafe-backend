@@ -12,7 +12,7 @@
     "isVeg": true,
     "rating": 4.8,
     "prepTime": "10 min",
-    "image": "/assets/images/drinks.png",
+    "image": "/assets/Beverages/item-1786594173521.jpg",
     "inStock": true
   },
   {
@@ -22,7 +22,7 @@
     "price": 139,
     "mediumPrice": 299,
     "description": "Blend of 7 exotic cheeses",
-    "image": "/assets/images/pizza.png"
+    "image": "/assets/pizzas/hist-1.jpg"
   },
   {
     "id": "hist-2",
@@ -31,7 +31,7 @@
     "price": 139,
     "mediumPrice": 299,
     "description": "Loaded with Extra Cheese",
-    "image": "/assets/images/pizza.png"
+    "image": "/assets/pizzas/hist-2.jpg"
   },
   {
     "id": "hist-3",
@@ -40,7 +40,7 @@
     "price": 139,
     "mediumPrice": 299,
     "description": "Onion, Green Capsicum, Fresh Tomato",
-    "image": "/assets/images/pizza.png"
+    "image": "/assets/pizzas/hist-3.jpg"
   },
   {
     "id": "hist-4",
@@ -49,7 +49,7 @@
     "price": 169,
     "mediumPrice": 349,
     "description": "Onion, Capsicum, Jalapeno & Mexican Herbs",
-    "image": "/assets/images/pizza.png"
+    "image": "/assets/pizzas/hist-4.jpg"
   },
   {
     "id": "hist-5",
@@ -58,7 +58,7 @@
     "price": 169,
     "mediumPrice": 349,
     "description": "Juicy Paneer, Crisp Capsicum & Red Paprika",
-    "image": "/assets/images/pizza.png"
+    "image": "/assets/pizzas/hist-5.jpg"
   },
   {
     "id": "hist-6",
@@ -67,7 +67,7 @@
     "price": 169,
     "mediumPrice": 349,
     "description": "Delightful combination of Onion, Capsicum, Tomato & Mushroom",
-    "image": "/assets/images/pizza.png"
+    "image": "/assets/pizzas/hist-6.jpg"
   },
   {
     "id": "hist-7",
@@ -99,7 +99,7 @@
     "category": "garlic_breads",
     "price": 99,
     "description": "Baked garlic breadsticks with cheesy jalapeño dip",
-    "image": "/assets/images/fries.png"
+    "image": "/assets/images/sandwich.png"
   },
   {
     "id": "hist-11",
